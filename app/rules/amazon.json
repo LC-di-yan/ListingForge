@@ -3,23 +3,107 @@
   "label": "亚马逊 Amazon",
   "region": "US/EU",
   "rules": [
-    { "id": "title_length", "field": "title", "type": "length_max", "max": 200, "severity": "error",
-      "name": "标题长度 ≤ 200 字符", "fix": "truncate" },
-    { "id": "title_banned", "field": "title", "type": "banned_words",
-      "words": ["Best", "Best Seller", "#1", "Top Rated", "Cheapest", "Free Shipping", "Hot Sale", "100% guarantee", "FDA approved"],
-      "severity": "error", "name": "标题禁用词（夸大宣传/促销词）", "fix": "strip_banned" },
-    { "id": "title_no_emoji", "field": "title", "type": "no_emoji", "severity": "error", "name": "标题不得含表情/特殊符号", "fix": "strip_emoji" },
-    { "id": "bullets_count", "field": "bullets", "type": "list_count", "min": 5, "max": 5, "severity": "error",
-      "name": "五点描述数量 = 5", "fix": "adjust_bullets" },
-    { "id": "bullets_length", "field": "bullets", "type": "item_length_max", "max": 240, "severity": "warn",
-      "name": "每点 ≤ 240 字符", "fix": "truncate_bullets" },
-    { "id": "description_min", "field": "description", "type": "length_min", "min": 150, "severity": "warn",
-      "name": "描述 ≥ 150 字符", "fix": "pad_description" },
-    { "id": "image_ratio", "field": "image", "type": "image_ratio", "ratio": [1, 1], "severity": "error",
-      "name": "主图比例 1:1", "fix": "regen_image" },
-    { "id": "image_white_bg", "field": "image", "type": "image_white_bg", "min_ratio": 0.6, "severity": "error",
-      "name": "主图纯白背景（占比 ≥ 60%）", "fix": "regen_image" },
-    { "id": "image_min_px", "field": "image", "type": "image_min_px", "min": 1000, "severity": "warn",
-      "name": "主图边长 ≥ 1000px", "fix": "regen_image" }
+    {
+      "id": "title_length",
+      "field": "title",
+      "type": "length_max",
+      "max": 200,
+      "severity": "error",
+      "name": "标题长度 ≤ 200 字符",
+      "fix": "truncate"
+    },
+    {
+      "id": "title_banned",
+      "field": "title",
+      "type": "banned_words",
+      "words": [
+        "Best",
+        "Best Seller",
+        "#1",
+        "Top Rated",
+        "Cheapest",
+        "Free Shipping",
+        "Hot Sale",
+        "100% guarantee",
+        "FDA approved"
+      ],
+      "severity": "error",
+      "name": "标题禁用词（夸大宣传/促销词）",
+      "fix": "strip_banned"
+    },
+    {
+      "id": "title_no_emoji",
+      "field": "title",
+      "type": "no_emoji",
+      "severity": "error",
+      "name": "标题不得含表情/特殊符号",
+      "fix": "strip_emoji"
+    },
+    {
+      "id": "bullets_count",
+      "field": "bullets",
+      "type": "list_count",
+      "min": 5,
+      "max": 5,
+      "severity": "error",
+      "name": "五点描述数量 = 5",
+      "fix": "adjust_bullets"
+    },
+    {
+      "id": "bullets_length",
+      "field": "bullets",
+      "type": "item_length_max",
+      "max": 240,
+      "severity": "warn",
+      "name": "每点 ≤ 240 字符",
+      "fix": "truncate_bullets"
+    },
+    {
+      "id": "description_min",
+      "field": "description",
+      "type": "length_min",
+      "min": 150,
+      "severity": "warn",
+      "name": "描述 ≥ 150 字符",
+      "fix": "pad_description"
+    },
+    {
+      "id": "image_ratio",
+      "field": "image",
+      "type": "image_ratio",
+      "ratio": [
+        1,
+        1
+      ],
+      "severity": "error",
+      "name": "主图比例 1:1",
+      "fix": "regen_image"
+    },
+    {
+      "id": "image_white_bg",
+      "field": "image",
+      "type": "image_white_bg",
+      "min_ratio": 0.6,
+      "severity": "error",
+      "name": "主图纯白背景（占比 ≥ 60%）",
+      "fix": "regen_image"
+    },
+    {
+      "id": "image_min_px",
+      "field": "image",
+      "type": "image_min_px",
+      "min": 1000,
+      "severity": "warn",
+      "name": "主图边长 ≥ 1000px",
+      "fix": "regen_image"
+    },
+    {
+      "id": "title_keywords",
+      "field": "title",
+      "type": "keyword_hits",
+      "min_hits": 2,
+      "severity": "warn",
+      "name": "标题布局核心关键词（≥2 个）"
+    }
   ]
 }

@@ -33,6 +33,15 @@ EMOJI_RE = re.compile(
 )
 
 
+def word_cut(s: str, n: int) -> str:
+    """词边界安全截断（规则修复与生成端共用语义，不产生残句）"""
+    s = s or ""
+    if len(s) <= n:
+        return s
+    head = s[:n]
+    return (head.rsplit(" ", 1)[0] if " " in head else head).rstrip(" ,;-–—:")
+
+
 def _check_text(text: str) -> str:
     return text or ""
 
@@ -97,6 +106,16 @@ def _eval_rule(rule: dict, listing: dict, image_path: str, pim: dict | None) -> 
         return {"status": "pass" if ok else "fail", "observed": "齐全" if ok else "缺失: " + ", ".join(missing),
                 "detail": "必填: " + ", ".join(rule["attrs"])}
 
+    if rtype == "keyword_hits":
+        title = _check_text(listing.get("title", "")).lower()
+        keywords = (pim or {}).get("keywords", []) if isinstance(pim, dict) else []
+        hits = [k for k in keywords if k and k.lower() in title]
+        ok = len(hits) >= rule.get("min_hits", 2)
+        shown = ", ".join(hits[:3]) + ("…" if len(hits) > 3 else "")
+        return {"status": "pass" if ok else rule.get("severity", "warn"),
+                "observed": f'命中 {len(hits)}/{len(keywords)}' + (f': {shown}' if hits else ''),
+                "detail": f"需命中 ≥{rule.get('min_hits', 2)} 个核心关键词"}
+
     if rtype in ("image_ratio", "image_white_bg", "image_min_px"):
         # 图片类规则由图片管线保证（白底主图 1:1 / ≥1000px），此处用管线产物元数据校验
         if not image_path:
@@ -151,7 +170,7 @@ def autofix(platform: str, listing: dict, image_path: str = "", pim: dict | None
         before = json.dumps({k: fixed.get(k) for k in ("title", "bullets", "description", "seo_meta")},
                             ensure_ascii=False)
         if fix == "truncate" and len(fixed.get("title", "")) > rule.get("max", 0):
-            fixed["title"] = fixed["title"][: rule["max"]].rstrip(" ,;-–—")
+            fixed["title"] = word_cut(fixed["title"], rule["max"])
         elif fix == "strip_banned":
             text = fixed.get("title", "")
             for w in rule.get("words", []):
@@ -173,7 +192,7 @@ def autofix(platform: str, listing: dict, image_path: str = "", pim: dict | None
                 bullets.append(f"Backed by 12-month warranty and responsive after-sales support #{len(bullets) + 1}")
             fixed["bullets"] = [b.rstrip() for b in bullets]
         elif fix == "truncate_bullets":
-            fixed["bullets"] = [b[: rule["max"]].rstrip() if len(b) > rule["max"] else b
+            fixed["bullets"] = [word_cut(b, rule["max"]) if len(b) > rule["max"] else b
                                 for b in (fixed.get("bullets") or [])]
         elif fix == "pad_description":
             desc = fixed.get("description", "")

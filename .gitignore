@@ -4,9 +4,12 @@ __pycache__/
 .venv/
 venv/
 
+# 密钥与环境配置（.env.example 可提交）
+.env
+
 # 运行时数据（数据库 / 上传件，保留 .gitkeep）
 data/uploads/
-data/*.db
+data/*.db*
 
 # IDE / OS
 .idea/

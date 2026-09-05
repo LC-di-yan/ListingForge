@@ -59,6 +59,38 @@ def test_upload_validation(client):
     assert r.json()["image_path"]  # 落盘成功
 
 
+def test_generate_is_idempotent(client):
+    """重复生成不翻倍（v1.2 R1 回归）"""
+    pid = client.post("/api/products/sample/feeder").json()["id"]
+    client.post(f"/api/products/{pid}/structure")
+    data = {"platforms": ["amazon", "tiktok_shop"], "languages": ["en"]}
+    client.post(f"/api/products/{pid}/generate", data=data)
+    client.post(f"/api/products/{pid}/generate", data=data)  # 第二次生成
+    listings = client.get(f"/api/products/{pid}/listings").json()
+    assert len(listings) == 2  # 而非 4
+
+
+def test_publish_twice_rejected(client, structured_bottle):
+    """已全部上架后重复发布应 400（没有新的已放行物料）"""
+    pid = structured_bottle
+    data = {"platforms": ["amazon"], "languages": ["en"]}
+    ls = client.post(f"/api/products/{pid}/generate", data=data).json()["listings"]
+    client.post(f"/api/listings/{ls[0]['id']}/approve")
+    assert client.post(f"/api/products/{pid}/publish").status_code == 200
+    assert client.post(f"/api/products/{pid}/publish").status_code == 400
+
+
+def test_upload_filename_traversal_blocked(client, tmp_path):
+    """路径穿越文件名被净化（v1.2 R2 安全回归）"""
+    r = client.post("/api/products", data={"name": "t"},
+                    files={"image": ("../../evil.png", io.BytesIO(base64_png()), "image/png")})
+    assert r.status_code == 200
+    saved = r.json()["image_path"].replace("\\", "/")
+    assert saved.endswith("evil.png") and "/raw/" in saved      # 落在 raw 目录内
+    assert "../" not in saved.split("/raw/")[-1]                # 无路径成分
+    client.delete(f"/api/products/{r.json()['id']}")
+
+
 def base64_png() -> bytes:
     import base64
     # 1x1 白色 PNG

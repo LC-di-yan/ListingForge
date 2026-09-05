@@ -94,12 +94,15 @@ async def create_product(name: str = Form(...), category: str = Form(""),
     if image is not None and image.filename:
         if image.content_type not in ALLOWED_IMAGE_TYPES:
             raise HTTPException(400, "仅支持 PNG / JPG / WebP 图片")
+        safe_name = Path(image.filename).name  # 去除路径成分，防穿越
+        if not safe_name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+            raise HTTPException(400, "图片扩展名必须为 png / jpg / jpeg / webp")
         data = await image.read()
         if len(data) > MAX_IMAGE_BYTES:
             raise HTTPException(400, "图片不能超过 8MB")
         dest_dir = UPLOADS / "raw"
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / f"upload_{int(time.time())}_{image.filename}"
+        dest = dest_dir / f"upload_{int(time.time())}_{safe_name}"
         with open(dest, "wb") as f:
             f.write(data)
         image_path = str(dest)
@@ -140,7 +143,8 @@ def structure(pid: int):
     t0 = time.time()
     image_b64 = None
     if p.get("image_path") and Path(p["image_path"]).exists():
-        image_b64 = base64.b64encode(Path(p["image_path"]).read_bytes()).decode()
+        vl_img = imaging.compress_for_vl(p["image_path"])  # 大图压缩后送模型
+        image_b64 = base64.b64encode(Path(vl_img).read_bytes()).decode()
     pim = generator.structure_product(p["name"], p["category"], p["features"],
                                       p["price"], p["target_market"], image_b64)
     pim.setdefault("attributes", {})["category"] = pim.get("category_en", "General")
@@ -162,6 +166,10 @@ def generate(pid: int, platforms: list[str] = Form(None), languages: list[str] =
     platforms = platforms or rules_engine.PLATFORMS
     languages = languages or ["en"]
     t0 = time.time()
+    # 重建式生成：清除未发布的旧物料与未成功任务，重复生成不翻倍（published 物料保留）
+    with db.get_conn() as conn:
+        conn.execute("DELETE FROM listings WHERE product_id=? AND status != 'published'", (pid,))
+        conn.execute("DELETE FROM tasks WHERE product_id=? AND status != 'success'", (pid,))
     combos = [(pl, lg) for pl in platforms for lg in languages]
     # 并发生成（mock 模式即时；qwen 实时模式下显著缩短总耗时）
     datas = list(_pool.map(lambda c: generator.generate_listing(p["pim"], c[0], c[1]), combos))

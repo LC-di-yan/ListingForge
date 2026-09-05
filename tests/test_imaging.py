@@ -27,3 +27,16 @@ def test_process_product_image_outputs_and_cache(tmp_path, monkeypatch):
     r2 = imaging.process_product_image(ASSETS / "sample_earbuds.png", 42)
     assert r2["cached"] is True  # 幂等缓存
     assert r2["main"] == r1["main"]
+
+
+def test_compress_for_vl(tmp_path):
+    """大图压缩送模型（v1.2 R3）"""
+    from PIL import Image
+    big = tmp_path / "big.png"
+    Image.new("RGB", (2400, 1800), (250, 250, 250)).save(big)
+    out = imaging.compress_for_vl(big)
+    with Image.open(out) as im:
+        assert max(im.size) <= 1024
+    small = tmp_path / "small.png"
+    Image.new("RGB", (600, 500), (250, 250, 250)).save(small)
+    assert imaging.compress_for_vl(small) == str(small)  # 小图原样返回

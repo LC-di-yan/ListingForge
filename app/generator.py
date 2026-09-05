@@ -148,15 +148,17 @@ def _title_en(pim: dict, platform: str) -> str:
     f1 = _short(sp[0], 32) if sp else "Smart Design"
     f2 = _short(sp[1], 26) if len(sp) > 1 else "Portable"
     scene = pim.get("use_scenarios", ["daily use"])[0]
+    # 关键词布局：标题需命中 PIM 核心关键词 ≥2 个（title_keywords 规则）
+    kws = [k for k in pim.get("keywords", []) if k.lower() not in name_en.lower()]
+    kw0 = kws[0] if kws else ""
     if platform == "amazon":
-        t = f"{name_en} {material} {color} with {f1}, {f2} for {scene}"
+        t = f"{name_en} {material} {color} with {f1}, {f2} for {scene}" + (f", {kw0}" if kw0 else "")
     elif platform == "aliexpress":
-        kw = [k for k in pim.get("keywords", []) if k.lower() not in name_en.lower()][:1]
-        t = f"{name_en} {material} {color} {f1} {' '.join(kw)}".strip()
+        t = f"{name_en} {material} {color} {f1} {' '.join(kws[:1])}".strip()
     elif platform == "tiktok_shop":
-        t = f"{name_en} | {f1} — {f2}"
+        t = f"{name_en} | {f1} — {f2}" + (f" #{kw0.replace(' ', '')}" if kw0 else "")
     else:
-        t = f"Aurora {name_en} — {f1}"
+        t = f"Aurora {kw0.capitalize() + ' ' if kw0 else ''}{name_en} — {f1}".replace("  ", " ")
     mx = PLATFORM_SPEC[platform]["title_max"]
     if len(t) > mx:  # 词边界安全截断
         t = t[:mx].rsplit(" ", 1)[0].rstrip(",;-–—:")

@@ -46,6 +46,7 @@
       <div class="pc-title">历史商品（点击切换）</div>
       <div id="historyList" class="history-list"></div>
     </div>
+    <button class="btn danger" id="btnDeleteProduct" style="display:none; width:100%; margin-top:10px">🗑 删除当前商品</button>
   </aside>
 
   <main class="content">
@@ -105,6 +106,7 @@
       <div id="generateResult" class="hidden">
         <div class="stat-row" id="genStats"></div>
         <div id="genPreview"></div>
+        <button class="btn ghost hidden" id="btnExpandAll" style="margin-bottom:14px">展开全部物料 ▾</button>
         <button class="btn primary" id="goto4">下一步：平台规则校验 →</button>
       </div>
     </section>
@@ -135,6 +137,7 @@
       <p class="hint">AI 出稿 + 人审放行：可修改任意字段后放行；全流程留痕可追溯。</p>
       <div class="report-toolbar">
         <select id="reviewListing"></select>
+        <button class="btn ghost" id="btnSaveDraft">💾 保存修改</button>
         <button class="btn success" id="btnApprove">✅ 放行</button>
         <button class="btn danger" id="btnReject">⛔ 驳回</button>
         <button class="btn ghost" id="btnApproveAll">批量放行全部 EN 主语言</button>

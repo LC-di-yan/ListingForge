@@ -20,9 +20,35 @@ def base_listing():
 
 def test_clean_amazon_listing_passes(tmp_path):
     main = imaging.make_white_bg(ASSETS / "sample_bottle.png", tmp_path / "main.jpg")
-    report = rules_engine.validate("amazon", base_listing(), main, {"attributes": {}})
+    report = rules_engine.validate("amazon", base_listing(), main, {"attributes": {}, "keywords": []})
     assert report["passed"], [c for c in report["checks"] if c["status"] == "fail"]
-    assert len(report["checks"]) == 9
+    assert len(report["checks"]) == 10  # v1.2: 新增 title_keywords 规则
+
+
+def test_keyword_hits_rule():
+    pim = {"keywords": ["insulated water bottle", "thermos", "travel mug"]}
+    l = base_listing()
+    l["title"] = "Insulated Water Bottle Stainless Steel thermos for travel"
+    check = next(c for c in rules_engine.validate("amazon", l, "", pim)["checks"]
+                 if c["id"] == "title_keywords")
+    assert check["status"] == "pass" and "命中 2/3" in check["observed"]
+    l["title"] = "Completely unrelated product title text"
+    check = next(c for c in rules_engine.validate("amazon", l, "", pim)["checks"]
+                 if c["id"] == "title_keywords")
+    assert check["status"] == "warn"  # warn 级：不影响 passed，但提示布局
+
+
+def test_word_boundary_truncation_everywhere():
+    l = base_listing()
+    l["title"] = "word " * 80
+    fixed, _ = rules_engine.autofix("amazon", l, "", None)
+    assert len(fixed["title"]) <= 200 and not fixed["title"].endswith("wor")
+    l2 = base_listing()
+    l2["bullets"] = ["alpha " * 80]  # 400 字符，规则上限 240
+    fixed2, log2 = rules_engine.autofix("amazon", l2, "", None)
+    assert len(fixed2["bullets"][0]) <= 240
+    assert not fixed2["bullets"][0].endswith("alp")
+    assert any(f["rule"] == "bullets_length" for f in log2["fixed"])
 
 
 def test_banned_word_detected_and_autofixed():

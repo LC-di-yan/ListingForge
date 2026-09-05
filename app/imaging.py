@@ -9,7 +9,7 @@ Demo 版用 Pillow 实现（零重依赖、秒级出图）：
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 UPLOADS = Path(__file__).resolve().parent.parent / "data" / "uploads"
 FONT_CANDIDATES = ["C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/msyhbd.ttc", "C:/Windows/Fonts/arial.ttf"]
@@ -50,11 +50,32 @@ def _fit_contain(img: Image.Image, box: int) -> Image.Image:
     return img
 
 
+def compress_for_vl(src: str | Path, max_mb: float = 1.5, max_side: int = 1600,
+                    target_side: int = 1024) -> str:
+    """送多模态模型前的图片预处理：过大图压缩至长边 1024 / JPEG q85（省流量、避开接口上限）"""
+    src = Path(src)
+    if not src.exists():
+        return str(src)
+    needs = src.stat().st_size > max_mb * 1024 * 1024
+    if not needs:
+        with Image.open(src) as im:
+            needs = max(im.size) > max_side
+    if not needs:
+        return str(src)
+    out = src.parent / f"vl_{src.stem}.jpg"
+    with Image.open(src) as im:
+        im = ImageOps.exif_transpose(im).convert("RGB")
+        im.thumbnail((target_side, target_side), Image.LANCZOS)
+        im.save(out, quality=85)
+    return str(out)
+
+
 def _cutout(img: Image.Image, tol: int = 34) -> Image.Image:
     """从边缘洪水填充抠除背景（demo 级抠图；生产替换为 rembg 模型抠图）"""
     import cv2
     import numpy as np
 
+    img = ImageOps.exif_transpose(img)  # 修正手机照片 EXIF 方向
     rgb = np.array(img.convert("RGB"))
     h, w = rgb.shape[:2]
     work = rgb.copy()

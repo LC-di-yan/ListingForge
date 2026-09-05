@@ -77,6 +77,7 @@ function renderProductCard() {
   const c = p.counts;
   $("#pcMeta").innerHTML = `类目 ${p.category || "-"} · $${p.price}<br>状态：${statusText(p.status)} · ID #${p.id}`
     + (c && c.listings ? `<br>物料 ${c.listings} 条 · 已放行 ${c.approved}` : "");
+  $("#btnDeleteProduct").style.display = "";
 }
 
 /* ---------------- 会话恢复 / 历史商品切换 ---------------- */
@@ -183,11 +184,11 @@ function renderStructure() {
   $("#structureResult").classList.remove("hidden");
   $("#pimSource").textContent = "来源: " + (pim.source || "mock");
   $("#pimAttrs").innerHTML = Object.entries(pim.attributes || {})
-    .map(([k, v]) => `<div class="kv"><b>${k}</b><span>${v}</span></div>`).join("")
-    + `<div class="kv"><b>目标人群</b><span>${pim.target_audience || "-"}</span></div>`
-    + `<div class="kv"><b>类目(EN)</b><span>${pim.category_en || "-"}</span></div>`;
-  $("#pimPoints").innerHTML = (pim.selling_points || []).map(s => `<li>${s}</li>`).join("");
-  $("#pimKeywords").innerHTML = (pim.keywords || []).map(k => `<span class="chip">${k}</span>`).join("");
+    .map(([k, v]) => `<div class="kv"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join("")
+    + `<div class="kv"><b>目标人群</b><span>${esc(pim.target_audience || "-")}</span></div>`
+    + `<div class="kv"><b>类目(EN)</b><span>${esc(pim.category_en || "-")}</span></div>`;
+  $("#pimPoints").innerHTML = (pim.selling_points || []).map(s => `<li>${esc(s)}</li>`).join("");
+  $("#pimKeywords").innerHTML = (pim.keywords || []).map(k => `<span class="chip">${esc(k)}</span>`).join("");
   if (state.images) {
     $("#imgMain").src = toWeb(state.images.main);
     const v = $("#imgVariants"); v.innerHTML = "";
@@ -233,8 +234,27 @@ async function doGenerate() {
       <div class="stat"><b>${platforms.length} × ${languages.length}</b><span>平台 × 语言</span></div>
       <div class="stat"><b>${new Set(state.listings.map(l => l.language)).size}</b><span>覆盖语言</span></div>`;
     const prev = $("#genPreview"); prev.innerHTML = "";
-    state.listings.slice(0, 3).forEach(l => prev.appendChild(listingCard(l, false)));
-    if (state.listings.length > 3) prev.appendChild(el("p", "hint", `…以及另外 ${state.listings.length - 3} 条物料，见后续校验与审核环节`));
+    const sorted = [...state.listings].sort((a, b) => (a.language === "en" ? -1 : 1) - (b.language === "en" ? -1 : 1));
+    sorted.slice(0, 3).forEach(l => prev.appendChild(listingCard(l, false)));
+    const expand = $("#btnExpandAll");
+    if (state.listings.length > 3) {
+      expand.classList.remove("hidden");
+      expand.textContent = `展开全部 ${state.listings.length} 条物料 ▾`;
+      expand.onclick = () => {
+        const showing = prev.children.length;
+        if (showing < state.listings.length) {
+          prev.innerHTML = "";
+          sorted.forEach(l => prev.appendChild(listingCard(l, false)));
+          expand.textContent = "收起 ▴";
+        } else {
+          prev.innerHTML = "";
+          sorted.slice(0, 3).forEach(l => prev.appendChild(listingCard(l, false)));
+          expand.textContent = `展开全部 ${state.listings.length} 条物料 ▾`;
+        }
+      };
+    } else {
+      expand.classList.add("hidden");
+    }
     state.product.status = "generated"; renderProductCard(); refreshHistoryMeta();
     toast(`已生成 ${state.listings.length} 条 Listing`);
   } catch (e) { toast(e.message, true); }
@@ -243,11 +263,12 @@ async function doGenerate() {
 
 function listingCard(l, editable) {
   const c = el("div", "card listing-card");
+  const rtl = l.language === "ar" ? ' dir="rtl" style="text-align:right"' : "";  // 阿语从右向左排版
   const statusBadge = `<span class="badge ${l.status}">${{ draft: "草稿", approved: "已放行", rejected: "已驳回", published: "已上架" }[l.status] || l.status}</span>`;
   c.innerHTML = `<div class="lc-head"><b>${PLATFORM_LABEL[l.platform]} · ${LANG_LABEL[l.language] || l.language}</b>${statusBadge}</div>
-    <div class="lc-field"><label>标题 (${l.title.length} 字符)</label>${editable ? `<input class="ed-title" value="">` : `<div>${esc(l.title)}</div>`}</div>
-    <div class="lc-field"><label>五点描述</label>${editable ? `<textarea class="ed-bullets" rows="5"></textarea>` : `<ul class="sp-list">${l.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul>`}</div>
-    <div class="lc-field"><label>长描述 (${l.description.length} 字符)</label>${editable ? `<textarea class="ed-desc" rows="4"></textarea>` : `<div>${esc(l.description)}</div>`}</div>`;
+    <div class="lc-field"><label>标题 (${l.title.length} 字符)</label>${editable ? `<input class="ed-title" value=""${rtl}>` : `<div${rtl}>${esc(l.title)}</div>`}</div>
+    <div class="lc-field"><label>五点描述</label>${editable ? `<textarea class="ed-bullets" rows="5"${rtl}></textarea>` : `<ul class="sp-list"${rtl}>${l.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul>`}</div>
+    <div class="lc-field"><label>长描述 (${l.description.length} 字符)</label>${editable ? `<textarea class="ed-desc" rows="4"${rtl}></textarea>` : `<div${rtl}>${esc(l.description)}</div>`}</div>`;
   if (editable) {
     c.querySelector(".ed-title").value = l.title;
     c.querySelector(".ed-bullets").value = l.bullets.join("\n");
@@ -367,6 +388,39 @@ async function saveReviewEdits(l) {
   });
 }
 
+async function doSaveDraft() {
+  const l = currentListing("#reviewListing");
+  if (!l) return;
+  try {
+    await saveReviewEdits(l);
+    toast("修改已保存（草稿）");
+    await refreshListings();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function doDeleteProduct() {
+  if (!state.product) return;
+  if (!confirm(`确认删除「${state.product.name}」及其全部物料与任务？`)) return;
+  try {
+    await api(`/api/products/${state.product.id}`, { method: "DELETE" });
+    toast("商品已删除");
+    const ps = await api("/api/products");
+    renderHistory(ps, null);
+    if (ps.length) {
+      await switchProduct(ps[0].id, { force: true, silent: true });
+      goto(maxStep());
+    } else {
+      state.product = null; state.listings = []; state.tasks = []; state.images = null;
+      $("#pcName").textContent = "尚未选择商品";
+      $("#pcMeta").textContent = "请从第 1 步开始";
+      $("#pcImg").src = "/static/placeholder.svg";
+      $("#historyCard").style.display = "none";
+      $("#btnDeleteProduct").style.display = "none";
+      goto(1);
+    }
+  } catch (e) { toast(e.message, true); }
+}
+
 async function doApprove(reject = false) {
   const l = currentListing("#reviewListing");
   if (!l) return;
@@ -447,11 +501,13 @@ async function init() {
   $("#reportListing").onchange = renderReport;
   $("#goto5").onclick = () => goto(5);
   $("#reviewListing").onchange = showReviewCard;
+  $("#btnSaveDraft").onclick = doSaveDraft;
   $("#btnApprove").onclick = () => doApprove(false);
   $("#btnReject").onclick = () => doApprove(true);
   $("#btnApproveAll").onclick = doApproveAll;
   $("#goto6").onclick = () => goto(6);
   $("#btnPublish").onclick = doPublish;
+  $("#btnDeleteProduct").onclick = doDeleteProduct;
   await restoreSession();   // 刷新后从数据库恢复上次进度
   goto(state.product ? maxStep() : 1);
 }

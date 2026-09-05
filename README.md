@@ -141,11 +141,13 @@ python run.py   # 启动后另开终端
 curl http://127.0.0.1:8000/api/meta          # {"mode":"mock"...}
 curl -X POST http://127.0.0.1:8000/api/products/sample/bottle
 
-# 测试套件（19 个用例：规则引擎 / 生成器 / 图片管线 / API 全流程）
+# 测试套件（26 个用例：规则引擎 / 生成器 / 图片管线 / API 全流程含幂等与安全回归）
 pip install -r requirements-dev.txt && python -m pytest
 ```
 
-> 刷新页面会自动恢复上次进度（会话持久化），侧栏可随时切换历史商品。
+> 刷新页面会自动恢复上次进度（会话持久化），侧栏可随时切换/删除历史商品；规则校验页提供全物料合规矩阵；多语言 Listing 按 RTL 正确排版阿语。
+>
+> UI 冒烟：`python scripts/ui_smoke.py`（Playwright 六步流 11 项断言）。
 >
 > **CI**：`.github/workflows/ci.yml` 已就绪（Python 3.10/3.12 跑 pytest）。因推送 workflow 文件需要 token 的 `workflow` 权限，启用只需：`gh auth refresh -h github.com -s workflow` 后执行 `git add .github && git push`。
 

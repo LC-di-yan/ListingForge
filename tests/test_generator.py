@@ -50,6 +50,15 @@ def test_localized_rewrite_hits_library():
     assert "Garrafa" in pt["title"] or "Aurora" in pt["title"]
 
 
+def test_titles_layout_core_keywords():
+    """标题关键词布局 ≥2 命中（v1.2 R9 对应生成端保证）"""
+    kws = PIM_BOTTLE.get("keywords", [])
+    for platform in PLATFORM_SPEC:
+        title = generate_listing_mock(PIM_BOTTLE, platform, "en")["title"]
+        hits = sum(1 for k in kws if k.lower() in title.lower())
+        assert hits >= 2, (platform, title, kws)
+
+
 def test_aliexpress_mock_contains_promo_words_for_demo():
     t = generate_listing_mock(PIM_BOTTLE, "aliexpress", "en")["title"]
     assert "Hot Sale" in t or "Free Shipping" in t  # 规则引擎演示剧本的一部分
