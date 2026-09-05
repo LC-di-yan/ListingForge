@@ -33,6 +33,13 @@ async function formPost(path, data) {
 const $ = s => document.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
+/* 服务器绝对路径 -> /data 静态 URL（兼容 Windows 反斜杠） */
+function toWeb(p) {
+  const norm = String(p).replace(/\\/g, "/");
+  const i = norm.indexOf("data/");
+  return i >= 0 ? "/data/" + norm.slice(i + 5) : p;
+}
+
 /* ---------------- 步骤导航 ---------------- */
 function maxStep() {
   if (state.tasks.length) return 6;
@@ -140,15 +147,15 @@ function renderStructure() {
   $("#pimPoints").innerHTML = (pim.selling_points || []).map(s => `<li>${s}</li>`).join("");
   $("#pimKeywords").innerHTML = (pim.keywords || []).map(k => `<span class="chip">${k}</span>`).join("");
   if (state.images) {
-    $("#imgMain").src = "/data/" + state.images.main.split("data/")[1];
+    $("#imgMain").src = toWeb(state.images.main);
     const v = $("#imgVariants"); v.innerHTML = "";
     Object.entries(state.images.variants).forEach(([k, path]) => {
       const d = el("div", "v");
-      d.innerHTML = `<img src="/data/${path.split("data/")[1]}"><small>${k.replace("x", ":")}</small>`;
+      d.innerHTML = `<img src="${toWeb(path)}"><small>${k.replace("x", ":")}</small>`;
       v.appendChild(d);
     });
     const scene = el("div", "v");
-    scene.innerHTML = `<img src="/data/${state.images.scene.split("data/")[1]}"><small>场景图</small>`;
+    scene.innerHTML = `<img src="${toWeb(state.images.scene)}"><small>场景图</small>`;
     v.appendChild(scene);
   }
 }

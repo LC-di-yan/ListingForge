@@ -125,35 +125,51 @@ def _benefit(feature: str) -> str:
 
 # ---------- F2 文案生成（mock） ----------
 
+def _short(s: str, n: int) -> str:
+    """按词边界截断，避免半个单词"""
+    s = (s or "").rstrip(".").replace(":", ",")
+    if len(s) <= n:
+        return s
+    return s[:n].rsplit(" ", 1)[0].rstrip(",;-–— ")
+
+
+def _audience_en(pim: dict) -> str:
+    """EN 文案里的人群词（中文输入自动回退，避免中英混排）"""
+    aud = pim.get("target_audience") or "everyday users"
+    return "friends and family" if re.search(r"[\u4e00-\u9fff]", str(aud)) else aud
+
+
 def _title_en(pim: dict, platform: str) -> str:
     name_en = pim.get("category_en", "Product")
-    brand = "Aurora"
     attrs = pim.get("attributes", {})
-    material = attrs.get("material", "")
-    color = attrs.get("color", "")
+    material, color = attrs.get("material", ""), attrs.get("color", "")
     sp = pim.get("selling_points", [])
-    f1 = sp[0].split(":")[0].split(",")[0] if sp else "Smart Design"
-    f2 = sp[1].split(":")[0].split(",")[0] if len(sp) > 1 else "Portable"
-    kw = ", ".join(pim.get("keywords", [])[:2])
+    f1 = _short(sp[0], 32) if sp else "Smart Design"
+    f2 = _short(sp[1], 26) if len(sp) > 1 else "Portable"
+    scene = pim.get("use_scenarios", ["daily use"])[0]
     if platform == "amazon":
-        t = f"{name_en} {material} {color} with {f1}, {f2} for {pim.get('use_scenarios', ['daily use'])[0]}"
+        t = f"{name_en} {material} {color} with {f1}, {f2} for {scene}"
     elif platform == "aliexpress":
-        t = f"{color} {material} {name_en} {f1} {f2} {kw}"
+        kw = [k for k in pim.get("keywords", []) if k.lower() not in name_en.lower()][:1]
+        t = f"{name_en} {material} {color} {f1} {' '.join(kw)}".strip()
     elif platform == "tiktok_shop":
         t = f"{name_en} | {f1} — {f2}"
     else:
         t = f"Aurora {name_en} — {f1}"
-    t = re.sub(r"\s{2,}", " ", t).strip()
-    return t[: PLATFORM_SPEC[platform]["title_max"]]
+    mx = PLATFORM_SPEC[platform]["title_max"]
+    if len(t) > mx:  # 词边界安全截断
+        t = t[:mx].rsplit(" ", 1)[0].rstrip(",;-–—:")
+    return re.sub(r"\s{2,}", " ", t).strip()
 
 
 def _bullets_en(pim: dict, n: int) -> list:
     leads = LANG_PACK["en"]["bullet_leads"]
     sp = pim.get("selling_points", [])
+    aud = _audience_en(pim)
     bullets = []
     for i in range(n):
         lead = leads[i % len(leads)]
-        body = sp[i] if i < len(sp) else f"Ideal gift for {pim.get('target_audience', 'friends and family')}"
+        body = sp[i] if i < len(sp) else f"Ideal gift for {aud}"
         bullets.append(f"{lead}: {body}.")
     return bullets
 
@@ -164,14 +180,12 @@ def _description_en(pim: dict) -> str:
     scene = pim.get("use_scenarios", ["daily use"])[0]
     if sp:
         hook = f"Meet the {name_en} — {sp[0].lower().rstrip('.')}, designed for {scene}."
+        body = " ".join(x.rstrip(".") + "." for x in sp[1:5])
     else:
         hook = f"Meet the {name_en}, designed for {scene}."
-    paras = [
-        hook,
-        " ".join(sp[:4]) if sp else "Quality you can trust.",
-        f"Perfect for {pim.get('target_audience', 'everyday users')}. Add it to your cart and upgrade your daily routine today.",
-    ]
-    return " ".join(paras)
+        body = "Quality you can trust."
+    cta = f"Perfect for {_audience_en(pim)}. Add it to your cart and upgrade your daily routine today."
+    return " ".join([hook, body, cta])
 
 
 def _localized_listing(pim: dict, platform: str, language: str) -> dict:

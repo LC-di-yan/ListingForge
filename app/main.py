@@ -276,6 +276,7 @@ def on_error(request, exc):
 # 静态资源（前端工作台 + 图片）
 app.mount("/static", StaticFiles(directory=str(ROOT / "app" / "static")), name="static")
 app.mount("/data", StaticFiles(directory=str(ROOT / "data")), name="data")
+app.mount("/assets", StaticFiles(directory=str(ROOT / "assets")), name="assets")
 
 
 @app.get("/")

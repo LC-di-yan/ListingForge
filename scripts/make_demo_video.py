@@ -91,20 +91,21 @@ def end_card():
 def scene_frame(shot: Image.Image, step, title, sub="", click=None, t=0.0):
     frame = shot.resize((W, H), Image.LANCZOS).convert("RGB")
     d = ImageDraw.Draw(frame, "RGBA")
-    # 顶部步骤条
-    d.rectangle([0, 0, W, 64], fill=DARK + (238,))
-    f = font(19, True)
-    x = 24
+    # 顶部步骤条（88px 不透明，完全遮盖应用自身顶栏）
+    STRIP = 88
+    d.rectangle([0, 0, W, STRIP], fill=DARK + (255,))
+    f = font(20, True)
+    x = 28
     for i, s in enumerate(STEPS, 1):
         color = (124, 236, 180) if i < step else ("white" if i == step else (122, 130, 160))
-        d.ellipse([x, 18, x + 28, 46], fill=PRIMARY if i == step else (46, 54, 88))
-        d.text((x + 14, 32), str(i), font=font(15, True), fill="white", anchor="mm")
-        d.text((x + 38, 32), s, font=f, fill=color, anchor="lm")
-        x += 38 + d.textlength(s, font=f) + 34
-    d.text((W - 24, 32), "ListingForge Demo", font=font(17, True), fill=(142, 150, 192), anchor="rm")
+        d.ellipse([x, STRIP / 2 - 15, x + 30, STRIP / 2 + 15], fill=PRIMARY if i == step else (46, 54, 88))
+        d.text((x + 15, STRIP / 2), str(i), font=font(16, True), fill="white", anchor="mm")
+        d.text((x + 42, STRIP / 2), s, font=f, fill=color, anchor="lm")
+        x += 42 + d.textlength(s, font=f) + 38
+    d.text((W - 28, STRIP / 2), "ListingForge Demo", font=font(18, True), fill=(142, 150, 192), anchor="rm")
     # 底部字幕
     bar = 96
-    d.rectangle([0, H - bar, W, H], fill=DARK + (244,))
+    d.rectangle([0, H - bar, W, H], fill=DARK + (255,))
     d.rectangle([0, H - bar, W, H - bar + 3], fill=ACCENT)
     d.text((48, H - bar + 32), title, font=font(30, True), fill="white", anchor="lm")
     if sub:
@@ -128,47 +129,54 @@ def scene_frame(shot: Image.Image, step, title, sub="", click=None, t=0.0):
 # ---------------- Playwright 截图 ----------------
 
 def capture_scenes():
+    import httpx
     from playwright.sync_api import sync_playwright
 
+    B = "http://127.0.0.1:8000"
+    c = httpx.Client(timeout=60)
     FRAMES_DIR.mkdir(exist_ok=True)
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         page = browser.new_page(viewport={"width": 1600, "height": 900}, device_scale_factor=1.2)
         page.goto("http://127.0.0.1:8000", wait_until="networkidle")
         page.wait_for_selector(".sample-card")
+        page.wait_for_timeout(400)
         page.screenshot(path=str(FRAMES_DIR / "raw_1.png"))
         page.click(".sample-card:nth-child(1)")
         page.wait_for_selector("#panel-2.active")
+        pid = page.evaluate("state.product.id")
         page.click("#btnStructure")
         page.wait_for_selector("#structureResult:not(.hidden)", timeout=30000)
-        page.wait_for_timeout(600)
+        page.wait_for_timeout(2200)  # 等待图片加载与 toast 消失
         page.screenshot(path=str(FRAMES_DIR / "raw_2.png"))
         page.click("#goto3")
         page.wait_for_selector("#panel-3.active")
         page.click("#pickLanguages .chip:nth-child(2)")
         page.click("#btnGenerate")
         page.wait_for_selector("#generateResult:not(.hidden)", timeout=60000)
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(2200)
         page.screenshot(path=str(FRAMES_DIR / "raw_3.png"))
+        ls = c.get(f"{B}/api/products/{pid}/listings").json()
+        alx_en = str(next(l["id"] for l in ls if l["platform"] == "aliexpress" and l["language"] == "en"))
         page.click("#goto4")
         page.wait_for_selector("#panel-4.active")
-        page.select_option("#reportListing", label__contains="速卖通 · 英语")
-        page.wait_for_timeout(500)
+        page.select_option("#reportListing", alx_en)
+        page.wait_for_timeout(600)
         page.screenshot(path=str(FRAMES_DIR / "raw_4.png"))
         page.click("#btnAutofix")
-        page.wait_for_timeout(700)
+        page.wait_for_timeout(1400)
         page.screenshot(path=str(FRAMES_DIR / "raw_5.png"))
         page.click("#goto5")
         page.wait_for_selector("#panel-5.active")
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(900)
         page.screenshot(path=str(FRAMES_DIR / "raw_6.png"))
         page.click("#btnApproveAll")
-        page.wait_for_timeout(700)
+        page.wait_for_timeout(1400)
         page.click("#goto6")
         page.wait_for_selector("#panel-6.active")
         page.click("#btnPublish")
         page.wait_for_selector("#publishResult:not(.hidden)", timeout=30000)
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(1600)
         page.screenshot(path=str(FRAMES_DIR / "raw_7.png"))
         browser.close()
 
@@ -182,7 +190,7 @@ def build_scenes(shots):
         {"kind": "card", "img": title_card(), "dur": 4.0},
         {"kind": "scene", "img": shots[1], "step": 1, "dur": 5.0,
          "title": "① 商品录入：内置示例商品，或表单/照片自定义录入",
-         "sub": "点击「智能温显保温杯」卡片创建商品", "click": (0.31, 0.40, 1.0)},
+         "sub": "点击「智能温显保温杯」卡片创建商品", "click": (0.42, 0.34, 1.0)},
         {"kind": "scene", "img": shots[2], "step": 2, "dur": 7.0,
          "title": "② AI 结构化：多模态模型识别商品，输出结构化 PIM 数据",
          "sub": "同步产出合规白底主图（1:1 1200px）与 4:5 / 16:9 / 9:16 多尺寸图"},

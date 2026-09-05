@@ -15,5 +15,5 @@ data/*.db
 Thumbs.db
 
 # 视频工程中间产物
-scripts/video_frames/
+data/video_frames/
 *.mp4.tmp
