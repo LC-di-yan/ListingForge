@@ -17,3 +17,6 @@ Thumbs.db
 # 视频工程中间产物
 data/video_frames/
 *.mp4.tmp
+
+# CI 工作流需 token workflow scope 才能推送，见 docs/优化方案.md 执行记录
+.github/workflows/
