@@ -1,0 +1,21 @@
+{
+  "platform": "aliexpress",
+  "label": "速卖通 AliExpress",
+  "region": "Global",
+  "rules": [
+    { "id": "title_banned", "field": "title", "type": "banned_words",
+      "words": ["Free Shipping", "Cheapest", "#1", "Best Seller", "Hot Sale"],
+      "severity": "error", "name": "标题禁用促销词", "fix": "strip_banned" },
+    { "id": "title_length", "field": "title", "type": "length_max", "max": 128, "severity": "error",
+      "name": "标题长度 ≤ 128 字符", "fix": "truncate" },
+    { "id": "attr_required", "field": "pim", "type": "attr_required",
+      "attrs": ["material", "color", "category"], "severity": "error",
+      "name": "必填类目属性（材质/颜色/类目）", "fix": "autofill_attr" },
+    { "id": "description_min", "field": "description", "type": "length_min", "min": 200, "severity": "warn",
+      "name": "描述 ≥ 200 字符", "fix": "pad_description" },
+    { "id": "image_ratio", "field": "image", "type": "image_ratio", "ratio": [1, 1], "severity": "error",
+      "name": "主图比例 1:1", "fix": "regen_image" },
+    { "id": "image_min_px", "field": "image", "type": "image_min_px", "min": 800, "severity": "warn",
+      "name": "主图边长 ≥ 800px", "fix": "regen_image" }
+  ]
+}

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 运行时数据（数据库 / 上传件，保留 .gitkeep）
+data/uploads/
+data/*.db
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 视频工程中间产物
+scripts/video_frames/
+*.mp4.tmp

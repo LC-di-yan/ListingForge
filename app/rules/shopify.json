@@ -1,0 +1,15 @@
+{
+  "platform": "shopify",
+  "label": "Shopify 独立站",
+  "region": "Brand DTC",
+  "rules": [
+    { "id": "title_seo", "field": "title", "type": "length_max", "max": 70, "severity": "warn",
+      "name": "标题 ≤ 70 字符（SEO 最佳长度）", "fix": "truncate" },
+    { "id": "seo_meta_length", "field": "seo_meta", "type": "length_range", "min": 120, "max": 160, "severity": "warn",
+      "name": "SEO Meta 描述 120-160 字符", "fix": "adjust_meta" },
+    { "id": "description_min", "field": "description", "type": "length_min", "min": 300, "severity": "warn",
+      "name": "描述 ≥ 300 字符（独立站 SEO 内容）", "fix": "pad_description" },
+    { "id": "image_ratio", "field": "image", "type": "image_ratio", "ratio": [1, 1], "severity": "warn",
+      "name": "主图建议 1:1", "fix": "regen_image" }
+  ]
+}

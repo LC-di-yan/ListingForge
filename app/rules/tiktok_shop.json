@@ -1,0 +1,17 @@
+{
+  "platform": "tiktok_shop",
+  "label": "TikTok Shop",
+  "region": "US/SEA",
+  "rules": [
+    { "id": "title_length", "field": "title", "type": "length_max", "max": 90, "severity": "error",
+      "name": "标题长度 ≤ 90 字符", "fix": "truncate" },
+    { "id": "title_banned", "field": "title", "type": "banned_words",
+      "words": ["Cure", "Heal", "Medical", "FDA", "Guaranteed", "Miracle", "Anti-aging"],
+      "severity": "error", "name": "标题禁用医疗/绝对化功效词", "fix": "strip_banned" },
+    { "id": "no_absolute_claim", "field": "description", "type": "banned_words",
+      "words": ["guaranteed results", "100% effective", "best in the world"],
+      "severity": "error", "name": "描述禁用绝对化效果承诺", "fix": "strip_banned_desc" },
+    { "id": "image_ratio", "field": "image", "type": "image_ratio", "ratio": [1, 1], "severity": "warn",
+      "name": "主图建议 1:1（短视频素材建议 9:16）", "fix": "regen_image" }
+  ]
+}

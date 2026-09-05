@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ListingForge · AI 智能上新引擎</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">LF</div>
+    <div>
+      <h1>ListingForge <span class="sub">AI 智能上新引擎</span></h1>
+      <p class="tagline">资料结构化 → 文案生成 → 规则校验 → 人审放行 → 多平台一键上架</p>
+    </div>
+  </div>
+  <div class="top-right">
+    <span id="modeBadge" class="mode-badge">…</span>
+    <span class="hackathon-badge">AI+跨境黑客松 · 场景一 智能上新</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <ol class="steps" id="steps">
+      <li data-step="1" class="active"><i>1</i><div><b>商品录入</b><small>示例 / 表单 / 照片</small></div></li>
+      <li data-step="2"><i>2</i><div><b>AI 结构化</b><small>Qwen-VL · PIM 数据</small></div></li>
+      <li data-step="3"><i>3</i><div><b>文案生成</b><small>多平台 · 多语言</small></div></li>
+      <li data-step="4"><i>4</i><div><b>规则校验</b><small>规则即代码</small></div></li>
+      <li data-step="5"><i>5</i><div><b>审核放行</b><small>AI 出稿 + 人审</small></div></li>
+      <li data-step="6"><i>6</i><div><b>一键上架</b><small>状态回传 · 运营清单</small></div></li>
+    </ol>
+    <div class="product-card" id="productCard">
+      <div class="pc-title">当前商品</div>
+      <img id="pcImg" src="/static/placeholder.svg" alt="">
+      <div id="pcName" class="pc-name">尚未选择商品</div>
+      <div id="pcMeta" class="pc-meta">请从第 1 步开始</div>
+    </div>
+  </aside>
+
+  <main class="content">
+    <!-- Step 1 -->
+    <section class="panel active" id="panel-1">
+      <h2>① 商品录入</h2>
+      <p class="hint">选择一个内置示例商品，或提交自定义商品资料（支持上传产品照片，接入 Qwen-VL 图像识别）。</p>
+      <div class="sample-grid" id="sampleGrid"></div>
+      <details class="custom-form">
+        <summary>➕ 自定义商品录入</summary>
+        <div class="form-grid">
+          <label>商品名称<input id="fName" placeholder="如：宠物自动饮水机 2L"></label>
+          <label>类目<input id="fCat" placeholder="如：宠物用品"></label>
+          <label>核心卖点（分号/换行分隔）<textarea id="fFeat" rows="3" placeholder="循环过滤；静音水泵；防干烧"></textarea></label>
+          <label>价格（USD）<input id="fPrice" type="number" step="0.01" value="19.99"></label>
+          <label>目标市场<input id="fMarket" placeholder="如：北美养宠家庭"></label>
+          <label>产品照片<input id="fImg" type="file" accept="image/*"></label>
+        </div>
+        <button class="btn primary" id="btnCustom">创建商品并进入结构化</button>
+      </details>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="panel" id="panel-2">
+      <h2>② 商品资料 AI 结构化（F1）</h2>
+      <p class="hint">多模态模型识别商品照片与文本资料，输出结构化 PIM 数据，并自动补全缺失属性；同步生成合规白底主图与多尺寸适配图（F3 图片管线）。</p>
+      <button class="btn primary" id="btnStructure">🧠 开始 AI 结构化 + 图片管线</button>
+      <div id="structureResult" class="hidden">
+        <div class="grid-2">
+          <div class="card">
+            <h3>结构化 PIM 数据 <span class="pill" id="pimSource"></span></h3>
+            <div class="kv-grid" id="pimAttrs"></div>
+            <h3 style="margin-top:14px">卖点（英文利益点）</h3>
+            <ul class="sp-list" id="pimPoints"></ul>
+            <h3 style="margin-top:14px">关键词</h3>
+            <div class="chips" id="pimKeywords"></div>
+          </div>
+          <div class="card">
+            <h3>图片管线产物（F3）</h3>
+            <div class="img-preview"><img id="imgMain" class="big" alt="白底主图"><small>白底主图 1:1 · 1200px</small></div>
+            <div class="variants" id="imgVariants"></div>
+          </div>
+        </div>
+        <button class="btn primary" id="goto3">下一步：多平台文案生成 →</button>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="panel" id="panel-3">
+      <h2>③ 多平台 Listing 文案工厂（F2）</h2>
+      <p class="hint">一次生成 4 平台 × 多语言全套物料。多语言为"本地化重写"而非直译，保留关键词与表达习惯。</p>
+      <div class="pick-row">
+        <div class="pick"><h4>目标平台</h4><div id="pickPlatforms" class="chips selectable"></div></div>
+        <div class="pick"><h4>目标语言</h4><div id="pickLanguages" class="chips selectable"></div></div>
+      </div>
+      <button class="btn primary" id="btnGenerate">✨ 一键生成全套 Listing</button>
+      <div id="generateResult" class="hidden">
+        <div class="stat-row" id="genStats"></div>
+        <div id="genPreview"></div>
+        <button class="btn primary" id="goto4">下一步：平台规则校验 →</button>
+      </div>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="panel" id="panel-4">
+      <h2>④ 平台规则引擎校验（F4 · 差异化核心）</h2>
+      <p class="hint">"规则即代码"：每平台规则库版本化（v1.0.0），逐条校验标题长度 / 禁用词 / 五点数量 / 主图规范 / 必填属性，不合规可一键自动改写。</p>
+      <div class="report-toolbar">
+        <select id="reportListing"></select>
+        <button class="btn warn" id="btnAutofix">🔧 一键自动改写修复</button>
+        <button class="btn ghost" id="btnRevalidate">重新校验</button>
+      </div>
+      <div id="reportArea"></div>
+      <button class="btn primary" id="goto5">下一步：审核工作台 →</button>
+    </section>
+
+    <!-- Step 5 -->
+    <section class="panel" id="panel-5">
+      <h2>⑤ 批量审核工作台（F5）</h2>
+      <p class="hint">AI 出稿 + 人审放行：可修改任意字段后放行；全流程留痕可追溯。</p>
+      <div class="report-toolbar">
+        <select id="reviewListing"></select>
+        <button class="btn success" id="btnApprove">✅ 放行</button>
+        <button class="btn danger" id="btnReject">⛔ 驳回</button>
+        <button class="btn ghost" id="btnApproveAll">批量放行全部 EN 主语言</button>
+      </div>
+      <div id="reviewArea"></div>
+      <button class="btn primary" id="goto6">下一步：一键上架 →</button>
+    </section>
+
+    <!-- Step 6 -->
+    <section class="panel" id="panel-6">
+      <h2>⑥ 多平台一键上架（F6）</h2>
+      <p class="hint">Demo 使用模拟适配器（返回平台商品 ID）；生产替换为 Shopify / 亚马逊 SP-API / 速卖通 / TikTok Shop 官方 API，接口签名一致。</p>
+      <button class="btn primary" id="btnPublish">🚀 将已放行 Listing 批量上架</button>
+      <div id="publishResult" class="hidden">
+        <div id="taskList"></div>
+        <div class="card" style="margin-top:16px">
+          <h3>📋 新品运营任务清单（自动生成）</h3>
+          <ul class="ops-list">
+            <li>定价复核：对照竞品区间与目标毛利（建议毛利率 ≥ 35%）</li>
+            <li>首轮广告：TikTok 短视频 9:16 素材已就绪，建议 CPM 出价 $6-8 冷启动</li>
+            <li>库存同步：首铺备货 300 件，设置 15% 安全库存阈值</li>
+            <li>评论引导：到货后 7 天启动售后邮件召回评价</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="footer">
+  ListingForge Demo · 基于阿里云百炼（Qwen 系列）设计 · 模拟模式离线可运行 ·
+  <a href="/docs" target="_blank">API 文档</a>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
