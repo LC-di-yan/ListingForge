@@ -146,6 +146,8 @@ pip install -r requirements-dev.txt && python -m pytest
 ```
 
 > 刷新页面会自动恢复上次进度（会话持久化），侧栏可随时切换历史商品。
+>
+> **CI**：`.github/workflows/ci.yml` 已就绪（Python 3.10/3.12 跑 pytest）。因推送 workflow 文件需要 token 的 `workflow` 权限，启用只需：`gh auth refresh -h github.com -s workflow` 后执行 `git add .github && git push`。
 
 ## 📄 License
 
