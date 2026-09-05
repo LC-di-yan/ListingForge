@@ -126,8 +126,9 @@ def _benefit(feature: str) -> str:
 # ---------- F2 文案生成（mock） ----------
 
 def _short(s: str, n: int) -> str:
-    """按词边界截断，避免半个单词"""
-    s = (s or "").rstrip(".").replace(":", ",")
+    """语义截断：先取逗号前的主短语，再按词边界截断，避免残句"""
+    s = (s or "").rstrip(".").replace("：", ",").replace(":", ",")
+    s = s.split(",")[0].strip().rstrip(",;-–— ")
     if len(s) <= n:
         return s
     return s[:n].rsplit(" ", 1)[0].rstrip(",;-–— ")

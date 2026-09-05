@@ -4,8 +4,11 @@
 体验:  http://127.0.0.1:8000
 """
 import base64
+import logging
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -21,13 +24,24 @@ ROOT = Path(__file__).resolve().parent.parent
 UPLOADS = ROOT / "data" / "uploads"
 UPLOADS.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="ListingForge · AI 智能上新引擎 Demo", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+GENERATE_WORKERS = 4  # 并发生成上限（兼顾 DashScope 限流）
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
+log = logging.getLogger("listingforge")
+_pool = ThreadPoolExecutor(max_workers=GENERATE_WORKERS)
 
 
-@app.on_event("startup")
-def _startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     db.init_db()
+    log.info("ListingForge 启动完成 · 模式=%s · 体验地址 http://127.0.0.1:8000", generator.get_mode())
+    yield  # 线程池随进程退出回收，不做 shutdown（支持多次 startup 的测试场景）
+
+
+app = FastAPI(title="ListingForge · AI 智能上新引擎 Demo", version="1.1.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 # ---------------- 元信息 ----------------
@@ -67,9 +81,8 @@ def create_from_sample(key: str):
     dest = dest_dir / f"sample_{key}.png"
     if img_src.exists():
         shutil.copy(img_src, dest)
-    product = db.create_product(s["name"], s["category"], s["features"], s["price"],
-                                s["target_market"], str(dest))
-    return product
+    return db.create_product(s["name"], s["category"], s["features"], s["price"],
+                             s["target_market"], str(dest))
 
 
 @app.post("/api/products")
@@ -79,11 +92,16 @@ async def create_product(name: str = Form(...), category: str = Form(""),
     feats = [f.strip() for f in re_split(features) if f.strip()]
     image_path = ""
     if image is not None and image.filename:
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(400, "仅支持 PNG / JPG / WebP 图片")
+        data = await image.read()
+        if len(data) > MAX_IMAGE_BYTES:
+            raise HTTPException(400, "图片不能超过 8MB")
         dest_dir = UPLOADS / "raw"
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / f"upload_{int(time.time())}_{image.filename}"
         with open(dest, "wb") as f:
-            f.write(await image.read())
+            f.write(data)
         image_path = str(dest)
     elif (ROOT / "assets" / "default_product.png").exists():
         image_path = str(ROOT / "assets" / "default_product.png")
@@ -100,6 +118,18 @@ def _main_image(p: dict) -> str:
     return str(cand) if cand.exists() else (p.get("image_path") or "")
 
 
+def _product_images(p: dict) -> dict | None:
+    """商品图片产物（web 路径，前端可直接使用；不存在返回 None）"""
+    d = UPLOADS / str(p["id"]) / "images"
+    if not (d / "main_white.jpg").exists():
+        return None
+    return {
+        "main": f"/data/uploads/{p['id']}/images/main_white.jpg",
+        "scene": f"/data/uploads/{p['id']}/images/scene.jpg",
+        "variants": {k: f"/data/uploads/{p['id']}/images/variant_{k}.jpg" for k in imaging.SIZE_PRESETS},
+    }
+
+
 # ---------------- F1 结构化 ----------------
 
 @app.post("/api/products/{pid}/structure")
@@ -107,6 +137,7 @@ def structure(pid: int):
     p = db.get_product(pid)
     if not p:
         raise HTTPException(404, "商品不存在")
+    t0 = time.time()
     image_b64 = None
     if p.get("image_path") and Path(p["image_path"]).exists():
         image_b64 = base64.b64encode(Path(p["image_path"]).read_bytes()).decode()
@@ -114,8 +145,8 @@ def structure(pid: int):
                                       p["price"], p["target_market"], image_b64)
     pim.setdefault("attributes", {})["category"] = pim.get("category_en", "General")
     db.update_product(pid, pim=pim, status="structured")
-    # 结构化后即产出合规主图（F3）
     images = imaging.process_product_image(p["image_path"], pid)
+    log.info("商品 #%d 结构化完成 (%.2fs, 图片缓存=%s)", pid, time.time() - t0, images.get("cached"))
     return {"product": db.get_product(pid), "images": images}
 
 
@@ -130,16 +161,19 @@ def generate(pid: int, platforms: list[str] = Form(None), languages: list[str] =
         raise HTTPException(400, "请先执行 AI 结构化")
     platforms = platforms or rules_engine.PLATFORMS
     languages = languages or ["en"]
+    t0 = time.time()
+    combos = [(pl, lg) for pl in platforms for lg in languages]
+    # 并发生成（mock 模式即时；qwen 实时模式下显著缩短总耗时）
+    datas = list(_pool.map(lambda c: generator.generate_listing(p["pim"], c[0], c[1]), combos))
     created = []
-    for platform in platforms:
-        for lang in languages:
-            data = generator.generate_listing(p["pim"], platform, lang)
-            listing = db.create_listing(pid, platform, lang, data["title"], data["bullets"],
-                                        data["description"], data.get("seo_meta", ""))
-            report = rules_engine.validate(platform, listing, _main_image(p), p["pim"])
-            db.update_listing(listing["id"], validation=report)
-            created.append(db.get_listing(listing["id"]))
+    for (platform, lang), data in zip(combos, datas):
+        listing = db.create_listing(pid, platform, lang, data["title"], data["bullets"],
+                                    data["description"], data.get("seo_meta", ""))
+        report = rules_engine.validate(platform, listing, _main_image(p), p["pim"])
+        db.update_listing(listing["id"], validation=report)
+        created.append(db.get_listing(listing["id"]))
     db.update_product(pid, status="generated")
+    log.info("商品 #%d 生成 %d 条 Listing (%.2fs)", pid, len(created), time.time() - t0)
     return {"listings": created}
 
 
@@ -161,19 +195,35 @@ def validate(lid: int):
     return report
 
 
+@app.post("/api/products/{pid}/validate_all")
+def validate_all(pid: int):
+    """批量校验：返回该商品全部 Listing 的校验状态汇总（矩阵视图数据源）"""
+    p = db.get_product(pid)
+    if not p:
+        raise HTTPException(404, "商品不存在")
+    out = []
+    for l in db.list_listings(pid):
+        report = rules_engine.validate(l["platform"], l, _main_image(p), p.get("pim"))
+        db.update_listing(l["id"], validation=report)
+        out.append({"id": l["id"], "platform": l["platform"], "language": l["language"],
+                    "status": l["status"], "passed": report["passed"], "summary": report["summary"]})
+    return {"items": out}
+
+
 @app.post("/api/listings/{lid}/autofix")
 def autofix(lid: int):
     l = db.get_listing(lid)
     if not l:
         raise HTTPException(404, "Listing 不存在")
     p = db.get_product(l["product_id"])
-    fixed, log = rules_engine.autofix(l["platform"], l, _main_image(p), p.get("pim"))
+    fixed, fix_log = rules_engine.autofix(l["platform"], l, _main_image(p), p.get("pim"))
     db.update_listing(lid, title=fixed["title"], bullets=fixed["bullets"],
                       description=fixed["description"], seo_meta=fixed.get("seo_meta", ""))
     report = rules_engine.validate(l["platform"], db.get_listing(lid),
                                    _main_image(p), p.get("pim"))
     db.update_listing(lid, validation=report)
-    return {"listing": db.get_listing(lid), "fix_log": log, "report": report}
+    log.info("Listing #%d 自动改写 %d 项", lid, len(fix_log["fixed"]))
+    return {"listing": db.get_listing(lid), "fix_log": fix_log, "report": report}
 
 
 # ---------------- F5 审核 ----------------
@@ -216,15 +266,15 @@ def publish(pid: int):
     approved = db.approved_listings_of_product(pid)
     if not approved:
         raise HTTPException(400, "没有已审核通过的 Listing，请先在审核工作台放行")
-    tasks = []
+    t0 = time.time()
     for l in approved:
         task = db.create_task(pid, l["id"], l["platform"], l["language"])
         ok, msg = fake_adapter_publish(p, l)
         db.update_task(task["id"], status="success" if ok else "failed", message=msg)
         if ok:
             db.update_listing(l["id"], status="published")
-        tasks.append(db.list_tasks(pid)[-1])
     db.update_product(pid, status="published")
+    log.info("商品 #%d 上架 %d 个平台 (%.2fs)", pid, len(approved), time.time() - t0)
     return {"tasks": db.list_tasks(pid)}
 
 
@@ -253,7 +303,16 @@ def product(pid: int):
     p = db.get_product(pid)
     if not p:
         raise HTTPException(404, "商品不存在")
+    p["images"] = _product_images(p)
+    p["counts"] = _product_counts(pid)
     return p
+
+
+def _product_counts(pid: int) -> dict:
+    listings = db.list_listings(pid)
+    return {"listings": len(listings),
+            "approved": sum(1 for l in listings if l["status"] in ("approved", "published")),
+            "tasks": len(db.list_tasks(pid))}
 
 
 @app.delete("/api/products/{pid}")
@@ -270,6 +329,7 @@ def delete_product(pid: int):
 
 @app.exception_handler(Exception)
 def on_error(request, exc):
+    log.exception("请求处理失败: %s", request.url.path)
     return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
 
 

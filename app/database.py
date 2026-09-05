@@ -56,6 +56,9 @@ def init_db():
                 message TEXT DEFAULT '',
                 created_at REAL
             );
+            CREATE INDEX IF NOT EXISTS idx_listings_product ON listings(product_id);
+            CREATE INDEX IF NOT EXISTS idx_tasks_product ON tasks(product_id);
+            PRAGMA journal_mode=WAL;
             """
         )
 

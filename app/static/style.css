@@ -226,3 +226,39 @@ body {
   animation: fade .2s;
 }
 .toast.err { background: var(--danger); }
+
+/* ---- GitHub 链接 ---- */
+.gh-link {
+  display: inline-flex; align-items: center; gap: 6px; color: #fff; text-decoration: none;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .28);
+  padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; transition: .15s;
+}
+.gh-link:hover { background: rgba(255, 255, 255, .22); }
+
+/* ---- 历史商品列表 ---- */
+.history-list { display: flex; flex-direction: column; gap: 7px; max-height: 240px; overflow-y: auto; }
+.history-item {
+  display: flex; gap: 9px; align-items: center; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: #fbfcff; transition: .12s;
+}
+.history-item:hover { border-color: var(--primary); }
+.history-item.on { border-color: var(--primary); background: #eef2ff; }
+.history-item .hi-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #cbd5e1; }
+.history-item .hi-dot.published { background: #1d4ed8; }
+.history-item .hi-dot.approved { background: var(--success); }
+.history-item .hi-dot.structured { background: var(--warn); }
+.history-item .hi-dot.generated { background: var(--primary-2); }
+.history-item b { font-size: 12.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.history-item small { color: var(--ink-2); font-size: 11px; }
+
+/* ---- 校验矩阵 ---- */
+.matrix { display: flex; flex-direction: column; gap: 6px; }
+.matrix-row {
+  display: grid; grid-template-columns: 52px 1.4fr .8fr 2fr 70px; gap: 10px; align-items: center;
+  padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 12.8px;
+}
+.matrix-row:not(.matrix-head) { cursor: pointer; }
+.matrix-row:not(.matrix-head):hover { border-color: var(--primary); background: #f8f9ff; }
+.matrix-head { background: #f1f3fa; font-weight: 700; color: var(--ink-2); font-size: 11.5px; cursor: default; }
+.matrix-act { color: var(--primary); font-weight: 700; text-align: right; font-size: 12px; }
+.dim { color: var(--ink-2); font-weight: 400; }

@@ -144,14 +144,34 @@ def make_size_variants(main: str | Path, out_dir: str | Path) -> dict:
     return results
 
 
-def process_product_image(src: str | Path, product_id: int) -> dict:
-    """F3 主流程：输入产品照片 -> 白底主图 + 场景图 + 多尺寸适配"""
+def process_product_image(src: str | Path, product_id: int, force: bool = False) -> dict:
+    """F3 主流程：输入产品照片 -> 白底主图 + 场景图 + 多尺寸适配（幂等：产物齐全且新于源图时跳过）"""
     out_dir = UPLOADS / str(product_id) / "images"
     out_dir.mkdir(parents=True, exist_ok=True)
-    main = make_white_bg(src, out_dir / "main_white.jpg")
-    scene = make_scene(src, out_dir / "scene.jpg")
-    variants = make_size_variants(main, out_dir)
-    return {"main": main, "scene": scene, "variants": variants}
+    main = out_dir / "main_white.jpg"
+    scene = out_dir / "scene.jpg"
+    variant_files = [out_dir / f"variant_{k}.jpg" for k in SIZE_PRESETS]
+    src_mtime = Path(src).stat().st_mtime if Path(src).exists() else 0
+    fresh = all(p.exists() and p.stat().st_mtime >= src_mtime for p in [main, scene, *variant_files])
+    if fresh and not force:
+        return {"main": _web(main), "scene": _web(scene),
+                "variants": {k: _web(out_dir / f"variant_{k}.jpg") for k in SIZE_PRESETS},
+                "cached": True}
+    main_path = make_white_bg(src, main)
+    scene_path = make_scene(src, scene)
+    variants = make_size_variants(main_path, out_dir)
+    return {"main": _web(Path(main_path)), "scene": _web(Path(scene_path)),
+            "variants": {k: _web(Path(v)) for k, v in variants.items()}, "cached": False}
+
+
+def _web(path: str | Path) -> str:
+    """绝对路径 -> /data 静态 web 路径。相对 data/ 挂载根（UPLOADS.parent）计算，
+    与 FastAPI 静态挂载 app.mount("/data", .../data) 严格对应。"""
+    try:
+        rel = Path(path).resolve().relative_to(UPLOADS.parent.resolve()).as_posix()
+        return "/data/" + rel
+    except ValueError:
+        return str(path)
 
 
 def ensure_compliant_main(src: str | Path) -> str:

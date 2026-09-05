@@ -4,8 +4,9 @@
 流程：Playwright 驱动真实页面走完六步 → 每步截图 → PIL 合成步骤条/字幕帧
       （含点击涟漪动效）→ ffmpeg 编码 + numpy 合成的轻背景乐 → MP4
 
+依赖: pip install playwright httpx && playwright install chromium
 用法: 服务运行中(python run.py)时执行  python scripts/make_demo_video.py
-产物: video/listingforge_demo.mp4 (1920x1080, ~56s)
+产物: video/listingforge_demo.mp4 (1920x1080, ~52s)
 """
 import subprocess
 import wave
@@ -141,6 +142,8 @@ def capture_scenes():
         page.goto("http://127.0.0.1:8000", wait_until="networkidle")
         page.wait_for_selector(".sample-card")
         page.wait_for_timeout(400)
+        page.click('#steps li[data-step="1"]')  # 会话恢复可能定位到后续步骤，先回到录入步
+        page.wait_for_selector("#panel-1.active")
         page.screenshot(path=str(FRAMES_DIR / "raw_1.png"))
         page.click(".sample-card:nth-child(1)")
         page.wait_for_selector("#panel-2.active")
@@ -160,6 +163,8 @@ def capture_scenes():
         alx_en = str(next(l["id"] for l in ls if l["platform"] == "aliexpress" and l["language"] == "en"))
         page.click("#goto4")
         page.wait_for_selector("#panel-4.active")
+        page.click("#btnValidateAll")
+        page.wait_for_timeout(900)
         page.select_option("#reportListing", alx_en)
         page.wait_for_timeout(600)
         page.screenshot(path=str(FRAMES_DIR / "raw_4.png"))
@@ -198,8 +203,8 @@ def build_scenes(shots):
          "title": "③ 文案工厂：一次生成 4 平台 × 多语言全套 Listing",
          "sub": "标题 / 五点描述 / 长描述 / SEO · 多语言为本地化重写而非直译"},
         {"kind": "scene", "img": shots[4], "step": 4, "dur": 6.0,
-         "title": "④ 规则引擎「规则即代码」：逐条校验平台规范",
-         "sub": "速卖通稿件检出「标题禁用促销词 / 标题超长」等违规项"},
+         "title": "④ 规则引擎「规则即代码」：批量校验全部物料",
+         "sub": "逐条校验平台规范，速卖通稿件检出「标题禁用促销词」等违规项"},
         {"kind": "scene", "img": shots[5], "step": 4, "dur": 6.0,
          "title": "④ 一键自动改写：违规内容按规则库修复，校验全部通过",
          "sub": "修复日志可审计 · 规则变更只需更新规则库版本，不改生成逻辑"},

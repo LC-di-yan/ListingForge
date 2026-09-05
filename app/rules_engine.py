@@ -14,14 +14,18 @@ from pathlib import Path
 RULES_DIR = Path(__file__).resolve().parent / "rules"
 PLATFORMS = ["amazon", "aliexpress", "tiktok_shop", "shopify"]
 
-_RULE_CACHE: dict[str, dict] = {}
+_RULE_CACHE: dict[str, tuple[float, dict]] = {}  # platform -> (mtime, ruleset)
 
 
 def load_rules(platform: str) -> dict:
-    if platform not in _RULE_CACHE:
-        path = RULES_DIR / f"{platform}.json"
-        _RULE_CACHE[platform] = json.loads(path.read_text(encoding="utf-8"))
-    return _RULE_CACHE[platform]
+    """按 mtime 热加载：修改规则 JSON 即时生效，无需重启"""
+    path = RULES_DIR / f"{platform}.json"
+    mtime = path.stat().st_mtime
+    cached = _RULE_CACHE.get(platform)
+    if not cached or cached[0] != mtime:
+        cached = (mtime, json.loads(path.read_text(encoding="utf-8")))
+        _RULE_CACHE[platform] = cached
+    return cached[1]
 
 
 EMOJI_RE = re.compile(

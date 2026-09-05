@@ -3,7 +3,23 @@
 > AI+跨境黑客松巅峰赛（用AI解跨境真命题）· 场景一「AI智能上新」参赛作品
 > 基于阿里云百炼（Qwen 系列）设计的端到端 AI 上新引擎：**资料结构化 → 多平台多语言文案 → 白底主图/多尺寸图 → 平台规则校验 → 人审放行 → 一键上架**
 
-![mode](https://img.shields.io/badge/百炼-Qwen--VL%20%2F%20Qwen--Plus-6d64f0) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/LC-di-yan/ListingForge/actions/workflows/ci.yml/badge.svg) ![mode](https://img.shields.io/badge/百炼-Qwen--VL%20%2F%20Qwen--Plus-6d64f0) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## 🖼️ 界面速览
+
+**AI 结构化 + 图片管线**（PIM 数据 / 白底主图 / 多尺寸适配）：
+
+![AI 结构化](docs/images/screenshot_structure.png)
+
+**平台规则引擎**（全物料合规矩阵 + 逐条校验 + 一键自动改写）：
+
+![规则引擎](docs/images/screenshot_rules.png)
+
+**批量审核放行 → 多平台一键上架**（状态回传 + 运营任务清单）：
+
+![一键上架](docs/images/screenshot_publish.png)
 
 ---
 
@@ -84,29 +100,30 @@ generator  rules_engine imaging
 ```
 ListingForge/
 ├── run.py                  # 一键启动
-├── requirements.txt
+├── requirements.txt        # 运行依赖
+├── requirements-dev.txt    # 开发依赖（pytest）
+├── pytest.ini / tests/     # 测试套件（规则引擎/生成器/图片管线/API 全流程）
+├── .github/workflows/ci.yml  # CI（3.10 / 3.12 双版本跑测试）
 ├── app/
 │   ├── main.py             # FastAPI 路由与编排
-│   ├── generator.py        # 文案引擎（模拟模式 + 百炼实时模式）
-│   ├── rules_engine.py     # 平台规则引擎（校验 + 自动改写）
-│   ├── imaging.py          # 图片管线（抠图/白底主图/多尺寸/场景图）
-│   ├── database.py         # SQLite 数据层
+│   ├── generator.py        # 文案引擎（模拟模式 + 百炼实时模式，4 线程并发生成）
+│   ├── rules_engine.py     # 平台规则引擎（校验 + 自动改写，规则库热加载）
+│   ├── imaging.py          # 图片管线（抠图/白底主图/多尺寸/场景图，幂等缓存）
+│   ├── database.py         # SQLite 数据层（WAL + 索引）
 │   ├── samples.py          # 内置示例商品
-│   ├── rules/              # ★ 四平台规则库（JSON，可版本化）
-│   │   ├── amazon.json
-│   │   ├── aliexpress.json
-│   │   ├── tiktok_shop.json
-│   │   └── shopify.json
-│   └── static/             # 前端工作台（HTML/CSS/JS）
+│   ├── rules/              # ★ 四平台规则库（JSON，可版本化、热加载）
+│   │   ├── amazon.json  ├── aliexpress.json
+│   │   ├── tiktok_shop.json  └── shopify.json
+│   └── static/             # 前端工作台（会话恢复 / 历史商品切换 / 校验矩阵）
 ├── scripts/
 │   ├── make_product_images.py   # 生成示例商品图
-│   └── make_demo_video.py       # 演示视频合成脚本
+│   ├── make_demo_video.py       # 演示视频合成脚本
+│   └── demo_e2e.py              # 一键 E2E 演示
 ├── docs/
-│   ├── 技术说明.md
-│   └── 体验方式.md
-├── assets/                 # 示例商品图
-├── video/                  # 演示视频
-└── data/                   # 运行时数据（SQLite / 图片产物）
+│   ├── 技术说明.md  ├── 体验方式.md  ├── 优化方案.md
+│   └── images/      # README 截图
+├── video/listingforge_demo.mp4   # 演示视频
+└── assets/                 # 示例商品图
 ```
 
 ## 🔑 差异化设计
@@ -123,8 +140,13 @@ ListingForge/
 python run.py   # 启动后另开终端
 curl http://127.0.0.1:8000/api/meta          # {"mode":"mock"...}
 curl -X POST http://127.0.0.1:8000/api/products/sample/bottle
+
+# 测试套件（19 个用例：规则引擎 / 生成器 / 图片管线 / API 全流程）
+pip install -r requirements-dev.txt && python -m pytest
 ```
+
+> 刷新页面会自动恢复上次进度（会话持久化），侧栏可随时切换历史商品。
 
 ## 📄 License
 
-MIT（Demo 用途；生产接入请遵守各平台 API 服务条款）
+MIT（见 [LICENSE](LICENSE)；Demo 用途；生产接入请遵守各平台 API 服务条款）

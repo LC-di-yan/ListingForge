@@ -61,6 +61,7 @@ function goto(step) {
     li.classList.toggle("done", s < step);
     li.classList.toggle("locked", s > maxStep());
   });
+  if (step === 2) renderStructure();
   if (step === 4) renderReport();
   if (step === 5) renderReview();
   if (step === 6 && state.tasks.length) renderTasks();
@@ -73,7 +74,48 @@ function renderProductCard() {
   if (!p) return;
   $("#pcImg").src = p.image_path ? "/data/uploads/raw/" + p.image_path.split(/[\\/]/).pop() : "/static/placeholder.svg";
   $("#pcName").textContent = p.name;
-  $("#pcMeta").innerHTML = `类目 ${p.category || "-"} · $${p.price}<br>状态：${statusText(p.status)} · ID #${p.id}`;
+  const c = p.counts;
+  $("#pcMeta").innerHTML = `类目 ${p.category || "-"} · $${p.price}<br>状态：${statusText(p.status)} · ID #${p.id}`
+    + (c && c.listings ? `<br>物料 ${c.listings} 条 · 已放行 ${c.approved}` : "");
+}
+
+/* ---------------- 会话恢复 / 历史商品切换 ---------------- */
+async function restoreSession() {
+  const ps = await api("/api/products");
+  renderHistory(ps, null);
+  if (ps.length) await switchProduct(ps[0].id, { silent: true });
+}
+
+async function switchProduct(pid, opts = {}) {
+  if (state.product && state.product.id === pid && !opts.force) return;
+  try {
+    const p = await api(`/api/products/${pid}`);
+    state.product = p;
+    state.images = p.images || null;
+    state.listings = await api(`/api/products/${pid}/listings`);
+    state.tasks = await api(`/api/products/${pid}/tasks`);
+    renderProductCard();
+    renderHistory(await api("/api/products"), pid);
+    if (state.step >= 2) renderStructure();
+    if (!opts.silent) {
+      toast(`已切换到「${p.name}」`);
+      goto(maxStep());
+    }
+  } catch (e) { toast(e.message, true); }
+}
+
+async function renderHistory(ps, activeId) {
+  if (!ps.length) { $("#historyCard").style.display = "none"; return; }
+  $("#historyCard").style.display = "";
+  const box = $("#historyList");
+  box.innerHTML = "";
+  ps.slice(0, 8).forEach(p => {
+    const row = el("div", "history-item" + (p.id === activeId || (activeId === null && state.product && p.id === state.product.id) ? " on" : ""));
+    row.innerHTML = `<span class="hi-dot ${p.status}"></span><div class="hi-body"><b>${esc(p.name)}</b>
+      <small>#${p.id} · ${statusText(p.status)}</small></div>`;
+    row.onclick = () => switchProduct(p.id);
+    box.appendChild(row);
+  });
 }
 
 function statusText(s) {
@@ -101,7 +143,7 @@ async function createSample(key) {
     toast("正在创建商品…");
     state.product = await api(`/api/products/sample/${key}`, { method: "POST" });
     state.images = null; state.listings = []; state.tasks = [];
-    renderProductCard(); toast("商品已创建，进入 AI 结构化");
+    renderProductCard(); refreshHistoryMeta(); toast("商品已创建，进入 AI 结构化");
     goto(2);
   } catch (e) { toast(e.message, true); }
 }
@@ -119,7 +161,7 @@ async function createCustom() {
     toast("正在创建商品…");
     state.product = await api("/api/products", { method: "POST", body: fd });
     state.images = null; state.listings = []; state.tasks = [];
-    renderProductCard(); goto(2);
+    renderProductCard(); refreshHistoryMeta(); goto(2);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -129,8 +171,8 @@ async function doStructure() {
   $("#btnStructure").disabled = true; $("#btnStructure").textContent = "⏳ AI 识别与结构化中…";
   try {
     const r = await api(`/api/products/${state.product.id}/structure`, { method: "POST" });
-    state.product = r.product; state.images = r.images;
-    renderProductCard(); renderStructure();
+    state.product = { ...r.product, images: r.images }; state.images = r.images;
+    renderProductCard(); renderStructure(); refreshHistoryMeta();
   } catch (e) { toast(e.message, true); }
   $("#btnStructure").disabled = false; $("#btnStructure").textContent = "🧠 开始 AI 结构化 + 图片管线";
 }
@@ -193,7 +235,7 @@ async function doGenerate() {
     const prev = $("#genPreview"); prev.innerHTML = "";
     state.listings.slice(0, 3).forEach(l => prev.appendChild(listingCard(l, false)));
     if (state.listings.length > 3) prev.appendChild(el("p", "hint", `…以及另外 ${state.listings.length - 3} 条物料，见后续校验与审核环节`));
-    state.product.status = "generated"; renderProductCard();
+    state.product.status = "generated"; renderProductCard(); refreshHistoryMeta();
     toast(`已生成 ${state.listings.length} 条 Listing`);
   } catch (e) { toast(e.message, true); }
   $("#btnGenerate").disabled = false; $("#btnGenerate").textContent = "✨ 一键生成全套 Listing";
@@ -220,6 +262,35 @@ function esc(s) { const d = el("div"); d.textContent = s || ""; return d.innerHT
 function currentListing(selectId) {
   const v = $(selectId).value;
   return state.listings.find(l => String(l.id) === v);
+}
+
+async function validateAll() {
+  const btn = $("#btnValidateAll");
+  btn.disabled = true; btn.textContent = "⏳ 校验中…";
+  try {
+    const r = await api(`/api/products/${state.product.id}/validate_all`, { method: "POST" });
+    renderMatrix(r.items);
+    if (currentListing("#reportListing")) renderReport();
+    toast(`批量校验完成：${r.items.filter(i => i.passed).length}/${r.items.length} 通过`);
+  } catch (e) { toast(e.message, true); }
+  btn.disabled = false; btn.textContent = "🔄 批量校验全部";
+}
+
+function renderMatrix(items) {
+  const area = $("#matrixArea");
+  area.innerHTML = "";
+  area.appendChild(el("div", "matrix-row matrix-head",
+    `<span>ID</span><span>平台 / 语言</span><span>状态</span><span>校验结果</span><span></span>`));
+  items.forEach(it => {
+    const row = el("div", "matrix-row");
+    row.innerHTML = `<span>#${it.id}</span>
+      <span>${PLATFORM_LABEL[it.platform]} · ${LANG_LABEL[it.language] || it.language}</span>
+      <span><span class="badge ${it.status}">${({ draft: "草稿", approved: "已放行", rejected: "已驳回", published: "已上架" }[it.status]) || it.status}</span></span>
+      <span><span class="status-chip ${it.passed ? "pass" : "fail"}">${it.passed ? "✓ 通过" : "✗ 违规"}</span> <small class="dim">${esc(it.summary)}</small></span>
+      <span class="matrix-act">查看 →</span>`;
+    row.onclick = () => { $("#reportListing").value = it.id; renderReport(); };
+    area.appendChild(row);
+  });
 }
 
 function fillListingSelect(selectId, filterEnFirst = false) {
@@ -324,6 +395,14 @@ async function refreshListings() {
   state.listings = await api(`/api/products/${state.product.id}/listings`);
 }
 
+function refreshHistoryMeta() {
+  api("/api/products").then(ps => {
+    const cur = ps.find(p => state.product && p.id === state.product.id);
+    if (cur) { state.product = { ...state.product, ...cur, images: state.images || cur.images }; renderProductCard(); }
+    renderHistory(ps, state.product && state.product.id);
+  }).catch(() => {});
+}
+
 /* ---------------- Step 6 上架 ---------------- */
 async function doPublish() {
   try {
@@ -331,7 +410,7 @@ async function doPublish() {
     const r = await api(`/api/products/${state.product.id}/publish`, { method: "POST" });
     state.tasks = r.tasks;
     $("#publishResult").classList.remove("hidden");
-    renderTasks();
+    renderTasks(); refreshHistoryMeta();
     toast(`已提交 ${state.tasks.length} 个平台任务`);
   } catch (e) { toast(e.message, true); }
   $("#btnPublish").disabled = false; $("#btnPublish").textContent = "🚀 将已放行 Listing 批量上架";
@@ -362,6 +441,7 @@ async function init() {
   $("#goto3").onclick = () => goto(3);
   $("#btnGenerate").onclick = doGenerate;
   $("#goto4").onclick = () => goto(4);
+  $("#btnValidateAll").onclick = validateAll;
   $("#btnAutofix").onclick = doAutofix;
   $("#btnRevalidate").onclick = renderReport;
   $("#reportListing").onchange = renderReport;
@@ -372,6 +452,7 @@ async function init() {
   $("#btnApproveAll").onclick = doApproveAll;
   $("#goto6").onclick = () => goto(6);
   $("#btnPublish").onclick = doPublish;
-  goto(1);
+  await restoreSession();   // 刷新后从数据库恢复上次进度
+  goto(state.product ? maxStep() : 1);
 }
 init().catch(e => toast("初始化失败: " + e.message, true));
