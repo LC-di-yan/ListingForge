@@ -40,6 +40,195 @@ function toWeb(p) {
   return i >= 0 ? "/data/" + norm.slice(i + 5) : p;
 }
 
+
+/* ================= v1.5 前端体验层（零依赖） ================= */
+
+/* ---- 主题（localStorage 持久化 + 系统偏好默认） ---- */
+function applyTheme(t) {
+  document.documentElement.classList.toggle("dark", t === "dark");
+  $("#themeToggle").textContent = t === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("lf-theme", t);
+}
+function toggleTheme() {
+  applyTheme(document.documentElement.classList.contains("dark") ? "light" : "dark");
+}
+
+/* ---- promise 化确认模态（替代原生 confirm） ---- */
+function uiConfirm(message, title) {
+  title = title || "请确认";
+  return new Promise(resolve => {
+    const mask = el("div", "modal-mask");
+    mask.innerHTML = '<div class="modal" role="alertdialog" aria-modal="true" aria-label="' + esc(title) + '">'
+      + "<h4>" + esc(title) + "</h4><p>" + esc(message) + "</p>"
+      + '<div class="modal-actions"><button class="btn ghost" data-act="cancel">取消</button>'
+      + '<button class="btn primary" data-act="ok">确认</button></div></div>';
+    const done = v => { mask.remove(); resolve(v); };
+    mask.addEventListener("click", e => {
+      if (e.target === mask) return done(false);
+      const act = e.target.closest("[data-act]");
+      if (act) done(act.dataset.act === "ok");
+    });
+    document.body.appendChild(mask);
+    mask.querySelector("[data-act='ok']").focus();
+  });
+}
+
+/* ---- 图片灯箱 ---- */
+function openLightbox(src, caption) {
+  const box = el("figure", "lightbox",
+    '<img src="' + src + '" alt="' + esc(caption || "") + '"><figcaption>'
+    + esc(caption || "") + ' · 点击任意处或 ESC 关闭</figcaption>');
+  box.addEventListener("click", () => box.remove());
+  document.body.appendChild(box);
+  const onKey = e => { if (e.key === "Escape") { box.remove(); document.removeEventListener("keydown", onKey); } };
+  document.addEventListener("keydown", onKey);
+}
+function initLightbox() {
+  document.addEventListener("click", e => {
+    const img = e.target.closest("img[data-lightbox], .variants img, .img-preview img.big");
+    if (img && img.naturalWidth > 0) {
+      const cap = img.alt || (img.closest(".v") && img.closest(".v").querySelector("small")?.textContent) || "图片预览";
+      openLightbox(img.src, cap);
+    }
+  });
+}
+
+/* ---- 复制到剪贴板 ---- */
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btn) {
+      btn.classList.add("done"); btn.textContent = "✓ 已复制";
+      setTimeout(() => { btn.classList.remove("done"); btn.textContent = "复制"; }, 1600);
+    } else toast("已复制到剪贴板");
+  } catch (e) { toast("复制失败：" + e.message, true); }
+}
+function initCopyButtons() {
+  document.addEventListener("click", e => {
+    const b = e.target.closest(".copy-btn");
+    if (b) copyText(decodeURIComponent(b.dataset.copy || ""), b);
+  });
+}
+
+/* ---- CountUp 数字动效 ---- */
+function countUp(node, target, dur) {
+  dur = dur || 700;
+  const t0 = performance.now();
+  (function frame(now) {
+    const k = Math.min(1, (now - t0) / dur);
+    node.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(frame);
+  })(performance.now());
+}
+
+/* ---- 成功彩带（灵感：catdad/canvas-confetti，内联零依赖实现） ---- */
+function fireConfetti() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = $("#confettiCanvas");
+  cv.width = innerWidth; cv.height = innerHeight;
+  const ctx = cv.getContext("2d");
+  const colors = ["#4f46e5", "#7c6cff", "#8cecb4", "#fbbf24", "#f87171", "#60a5fa"];
+  const parts = Array.from({ length: 150 }, () => ({
+    x: innerWidth / 2 + (Math.random() - .5) * 280, y: innerHeight * 0.7,
+    vx: (Math.random() - .5) * 13, vy: -(7 + Math.random() * 8),
+    s: 5 + Math.random() * 6, r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3,
+    c: colors[Math.floor(Math.random() * colors.length)], life: 90 + Math.random() * 40,
+  }));
+  (function frame() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    let alive = false;
+    for (const pt of parts) {
+      if (pt.life <= 0) continue;
+      alive = true;
+      pt.vy += 0.22; pt.x += pt.vx; pt.y += pt.vy; pt.r += pt.vr; pt.life--;
+      ctx.save(); ctx.translate(pt.x, pt.y); ctx.rotate(pt.r);
+      ctx.globalAlpha = Math.max(0, Math.min(1, pt.life / 40));
+      ctx.fillStyle = pt.c; ctx.fillRect(-pt.s / 2, -pt.s / 2, pt.s, pt.s * 0.6);
+      ctx.restore();
+    }
+    if (alive) requestAnimationFrame(frame); else ctx.clearRect(0, 0, cv.width, cv.height);
+  })();
+}
+
+/* ---- ⌘K 命令面板（灵感：cmdk / GitHub palette，轻量自研） ---- */
+let palSel = 0, palItems = [];
+function paletteCommands() {
+  const cmds = [
+    { icon: "①", label: "商品录入", hint: "步骤 1", run: () => goto(1) },
+    { icon: "②", label: "AI 结构化", hint: "步骤 2", run: () => goto(2) },
+    { icon: "③", label: "文案生成", hint: "步骤 3", run: () => goto(3) },
+    { icon: "④", label: "规则校验", hint: "步骤 4", run: () => goto(4) },
+    { icon: "⑤", label: "审核放行", hint: "步骤 5", run: () => goto(5) },
+    { icon: "⑥", label: "一键上架", hint: "步骤 6", run: () => goto(6) },
+    { icon: "🌓", label: "切换亮色/暗色主题", hint: "快捷键 D", run: toggleTheme },
+    { icon: "⬇", label: "导出全部物料 CSV", hint: "需已生成物料",
+      run: () => state.product && (window.location.href = "/api/products/" + state.product.id + "/export") },
+  ];
+  document.querySelectorAll(".history-item").forEach((item, i) => {
+    const name = item.querySelector("b").textContent;
+    cmds.push({ icon: "📦", label: "切换到「" + name + "」", hint: "历史商品 " + (i + 1), run: () => item.click() });
+  });
+  return cmds;
+}
+function openPalette() {
+  if (document.querySelector(".palette-mask")) return;
+  const mask = el("div", "palette-mask",
+    '<div class="palette" role="dialog" aria-label="命令面板">'
+    + '<input type="text" placeholder="搜索步骤 / 商品 / 操作…" aria-label="命令搜索"><div class="pal-list"></div></div>');
+  const input = mask.querySelector("input"), list = mask.querySelector(".pal-list");
+  const render = q => {
+    palItems = paletteCommands().filter(c => !q || (c.label + c.hint).toLowerCase().includes(q.toLowerCase()));
+    palSel = 0;
+    list.innerHTML = palItems.length
+      ? palItems.map((c, i) => '<div class="pal-item' + (i === 0 ? " sel" : "") + '" data-i="' + i
+        + '"><span class="pal-icon">' + c.icon + '</span><span>' + esc(c.label)
+        + '</span><small>' + esc(c.hint) + "</small></div>").join("")
+      : '<div class="pal-empty">没有匹配的命令</div>';
+  };
+  const close = () => mask.remove();
+  const exec = i => { close(); if (palItems[i]) palItems[i].run(); };
+  input.addEventListener("input", () => render(input.value));
+  input.addEventListener("keydown", e => {
+    const items = list.querySelectorAll(".pal-item");
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      palSel = (palSel + (e.key === "ArrowDown" ? 1 : -1) + items.length) % Math.max(1, items.length);
+      items.forEach((n, i) => n.classList.toggle("sel", i === palSel));
+      items[palSel] && items[palSel].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") exec(palSel);
+  });
+  list.addEventListener("click", e => { const it = e.target.closest(".pal-item"); if (it) exec(+it.dataset.i); });
+  mask.addEventListener("click", e => { if (e.target === mask) close(); });
+  document.body.appendChild(mask);
+  input.focus();
+  render("");
+}
+
+/* ---- 键盘快捷键（输入聚焦时忽略） ---- */
+function initShortcuts() {
+  document.addEventListener("keydown", e => {
+    const tag = (e.target.tagName || "").toLowerCase();
+    const typing = tag === "input" || tag === "textarea" || e.target.isContentEditable;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
+    if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key >= "1" && e.key <= "6") goto(+e.key);
+    else if (e.key.toLowerCase() === "d") toggleTheme();
+    else if (e.key === "?") toast("快捷键：1-6 切换步骤 · Ctrl/⌘+K 命令面板 · D 切换主题");
+  });
+}
+
+/* ---- 顶部进度条 ---- */
+function updateProgress() {
+  const bar = $("#topProgress");
+  if (bar) bar.style.width = ((maxStep() - 1) / 5 * 100) + "%";
+}
+
+function showSkeleton(sel, on) {
+  const node = $(sel);
+  if (node) node.classList.toggle("hidden", !on);
+}
+
 /* ---------------- 步骤导航 ---------------- */
 function maxStep() {
   if (state.tasks.length) return 6;
@@ -61,6 +250,7 @@ function goto(step) {
     li.classList.toggle("done", s < step);
     li.classList.toggle("locked", s > maxStep());
   });
+  updateProgress();
   if (step === 2) renderStructure();
   if (step === 4) renderReport();
   if (step === 5) renderReview();
@@ -173,11 +363,13 @@ async function createCustom() {
 async function doStructure() {
   if (!state.product) return;
   $("#btnStructure").disabled = true; $("#btnStructure").textContent = "⏳ AI 识别与结构化中…";
+  showSkeleton("#structureSkeleton", true);
   try {
     const r = await api(`/api/products/${state.product.id}/structure`, { method: "POST" });
     state.product = { ...r.product, images: r.images }; state.images = r.images;
     renderProductCard(); renderStructure(); refreshHistoryMeta();
   } catch (e) { toast(e.message, true); }
+  showSkeleton("#structureSkeleton", false);
   $("#btnStructure").disabled = false; $("#btnStructure").textContent = "🧠 开始 AI 结构化 + 图片管线";
 }
 
@@ -228,18 +420,20 @@ async function doGenerate() {
   const languages = [...document.querySelectorAll("#pickLanguages .chip.on")].map(c => c.dataset.key);
   if (!platforms.length || !languages.length) { toast("请至少选择一个平台与一种语言", true); return; }
   if (state.listings.some(l => ["approved", "published"].includes(l.status))
-      && !confirm("重新生成将清除当前已放行/已上架的旧物料并重新校验放行状态，确认继续？")) {
+      && !(await uiConfirm("重新生成将清除当前已放行/已上架的旧物料，并重新校验放行状态。", "重新生成？"))) {
     return;  // 重建式生成会重置审核状态，需用户确认
   }
   $("#btnGenerate").disabled = true; $("#btnGenerate").textContent = "⏳ 多平台文案链生成中…";
+  showSkeleton("#genSkeleton", true);
   try {
     const r = await formPost(`/api/products/${state.product.id}/generate`, { platforms, languages });
     state.listings = await api(`/api/products/${state.product.id}/listings`);
     $("#generateResult").classList.remove("hidden");
     $("#genStats").innerHTML = `
-      <div class="stat"><b>${state.listings.length}</b><span>Listing 物料</span></div>
+      <div class="stat"><b data-count="${state.listings.length}">0</b><span>Listing 物料</span></div>
       <div class="stat"><b>${platforms.length} × ${languages.length}</b><span>平台 × 语言</span></div>
-      <div class="stat"><b>${new Set(state.listings.map(l => l.language)).size}</b><span>覆盖语言</span></div>`;
+      <div class="stat"><b data-count="${new Set(state.listings.map(l => l.language)).size}">0</b><span>覆盖语言</span></div>`;
+    document.querySelectorAll("#genStats b[data-count]").forEach(b => countUp(b, +b.dataset.count));
     const prev = $("#genPreview"); prev.innerHTML = "";
     const sorted = [...state.listings].sort((a, b) => (a.language === "en" ? -1 : 1) - (b.language === "en" ? -1 : 1));
     sorted.slice(0, 3).forEach(l => prev.appendChild(listingCard(l, false)));
@@ -265,6 +459,7 @@ async function doGenerate() {
     state.product.status = "generated"; renderProductCard(); refreshHistoryMeta();
     toast(`已生成 ${state.listings.length} 条 Listing`);
   } catch (e) { toast(e.message, true); }
+  showSkeleton("#genSkeleton", false);
   $("#btnGenerate").disabled = false; $("#btnGenerate").textContent = "✨ 一键生成全套 Listing";
 }
 
@@ -272,10 +467,11 @@ function listingCard(l, editable) {
   const c = el("div", "card listing-card");
   const rtl = l.language === "ar" ? ' dir="rtl" style="text-align:right"' : "";  // 阿语从右向左排版
   const statusBadge = `<span class="badge ${l.status}">${{ draft: "草稿", approved: "已放行", rejected: "已驳回", published: "已上架" }[l.status] || l.status}</span>`;
+  const copyBtn = text => `<button class="copy-btn" data-copy="${encodeURIComponent(text)}" aria-label="复制内容">复制</button>`;
   c.innerHTML = `<div class="lc-head"><b>${PLATFORM_LABEL[l.platform]} · ${LANG_LABEL[l.language] || l.language}</b>${statusBadge}</div>
-    <div class="lc-field"><label>标题 (${l.title.length} 字符)</label>${editable ? `<input class="ed-title" value=""${rtl}>` : `<div${rtl}>${esc(l.title)}</div>`}</div>
-    <div class="lc-field"><label>五点描述</label>${editable ? `<textarea class="ed-bullets" rows="5"${rtl}></textarea>` : `<ul class="sp-list"${rtl}>${l.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul>`}</div>
-    <div class="lc-field"><label>长描述 (${l.description.length} 字符)</label>${editable ? `<textarea class="ed-desc" rows="4"${rtl}></textarea>` : `<div${rtl}>${esc(l.description)}</div>`}</div>`;
+    <div class="lc-field"><label>标题 (${l.title.length} 字符)</label>${editable ? `<input class="ed-title" value=""${rtl}>` : `${copyBtn(l.title)}<div${rtl}>${esc(l.title)}</div>`}</div>
+    <div class="lc-field"><label>五点描述</label>${editable ? `<textarea class="ed-bullets" rows="5"${rtl}></textarea>` : `${copyBtn(l.bullets.join("\n"))}<ul class="sp-list"${rtl}>${l.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul>`}</div>
+    <div class="lc-field"><label>长描述 (${l.description.length} 字符)</label>${editable ? `<textarea class="ed-desc" rows="4"${rtl}></textarea>` : `${copyBtn(l.description)}<div${rtl}>${esc(l.description)}</div>`}</div>`;
   if (editable) {
     c.querySelector(".ed-title").value = l.title;
     c.querySelector(".ed-bullets").value = l.bullets.join("\n");
@@ -295,6 +491,7 @@ function currentListing(selectId) {
 async function validateAll() {
   const btn = $("#btnValidateAll");
   btn.disabled = true; btn.textContent = "⏳ 校验中…";
+  $("#matrixArea").innerHTML = Array(5).fill('<div class="skeleton sk-line" style="height:30px"></div>').join("");
   try {
     const r = await api(`/api/products/${state.product.id}/validate_all`, { method: "POST" });
     renderMatrix(r.items);
@@ -417,7 +614,7 @@ async function doSaveDraft() {
 
 async function doDeleteProduct() {
   if (!state.product) return;
-  if (!confirm(`确认删除「${state.product.name}」及其全部物料与任务？`)) return;
+  if (!(await uiConfirm(`将删除「${state.product.name}」及其全部物料与任务，不可恢复。`, "删除当前商品？"))) return;
   try {
     await api(`/api/products/${state.product.id}`, { method: "DELETE" });
     toast("商品已删除");
@@ -482,6 +679,7 @@ async function doPublish() {
     state.tasks = r.tasks;
     $("#publishResult").classList.remove("hidden");
     renderTasks(); refreshHistoryMeta();
+    if (state.tasks.every(t => t.status === "success")) fireConfetti();
     toast(`已提交 ${state.tasks.length} 个平台任务`);
   } catch (e) { toast(e.message, true); }
   $("#btnPublish").disabled = false; $("#btnPublish").textContent = "🚀 将已放行 Listing 批量上架";
@@ -528,7 +726,12 @@ async function init() {
   $("#btnExportCsv").onclick = () => {
     window.location.href = `/api/products/${state.product.id}/export`;
   };
+  applyTheme(localStorage.getItem("lf-theme")
+    || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  $("#themeToggle").onclick = toggleTheme;
+  initShortcuts(); initLightbox(); initCopyButtons();
   await restoreSession();   // 刷新后从数据库恢复上次进度
   goto(state.product ? maxStep() : 1);
+  updateProgress();
 }
 init().catch(e => toast("初始化失败: " + e.message, true));

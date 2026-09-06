@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v1.5.0 — 前端专项（2026-09-06）
+
+第五轮优化，主题「现代前端体验」，全部零依赖 vanilla 实现：
+
+- **暗色模式**：69 处硬编码颜色全部令牌化，`.dark` 深灰主题（非纯黑），顶栏切换 + localStorage 持久化 + `prefers-color-scheme` 默认
+- **⌘K 命令面板**：模糊搜索步骤/商品切换/主题/导出（灵感 cmdk / GitHub palette，轻量自研 ~80 行）
+- **成功彩带**：四平台上架成功触发 canvas 彩带（灵感 catdad/canvas-confetti，内联实现，`prefers-reduced-motion` 降级）
+- **骨架屏**：结构化/生成/校验异步等待期显示形状匹配 shimmer 骨架
+- **自定义模态**：promise 化 `uiConfirm` 替换 2 处原生 confirm
+- **一键复制**：Listing 标题/五点/描述 hover 复制按钮；**图片灯箱**：白底主图/变体点击放大
+- **键盘快捷键**：1-6 切步骤 / D 切主题 / ? 帮助；顶部步骤进度条；统计数字 CountUp
+- **A11y**：aria-label 补齐、`:focus-visible` 样式、reduced-motion 降级
+- UI 冒烟 12 → **19 项**（主题切换/持久化、命令面板、灯箱、快捷键、复制、审计行）
+
 ## v1.4.0 — 交付成熟度（2026-09-06）
 
 第四轮优化：

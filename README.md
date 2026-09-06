@@ -3,7 +3,7 @@
 > AI+跨境黑客松巅峰赛（用AI解跨境真命题）· 场景一「AI智能上新」参赛作品
 > 基于阿里云百炼（Qwen 系列）设计的端到端 AI 上新引擎：**资料结构化 → 多平台多语言文案 → 白底主图/多尺寸图 → 平台规则校验 → 人审放行 → 一键上架**
 
-![CI](https://github.com/LC-di-yan/ListingForge/actions/workflows/ci.yml/badge.svg) ![version](https://img.shields.io/badge/version-v1.4.0-6d64f0) ![mode](https://img.shields.io/badge/百炼-Qwen--VL%20%2F%20Qwen--Plus-6d64f0) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/LC-di-yan/ListingForge/actions/workflows/ci.yml/badge.svg) ![version](https://img.shields.io/badge/version-v1.5.0-6d64f0) ![mode](https://img.shields.io/badge/百炼-Qwen--VL%20%2F%20Qwen--Plus-6d64f0) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -13,9 +13,13 @@
 
 ![AI 结构化](docs/images/screenshot_structure.png)
 
-**平台规则引擎**（全物料合规矩阵 + 逐条校验 + 一键自动改写）：
+**平台规则引擎**（全物料合规矩阵 + 逐条校验 + 一键自动改写 + 改写留痕）：
 
 ![规则引擎](docs/images/screenshot_rules.png)
+
+**暗色模式**（顶栏 🌙 一键切换，跟随系统偏好，持久化保存）：
+
+![暗色模式](docs/images/screenshot_dark.png)
 
 **批量审核放行 → 多平台一键上架**（状态回传 + 运营任务清单）：
 
@@ -71,7 +75,7 @@ DASHSCOPE_API_KEY=sk-你的百炼Key python run.py
 
 ## 🧾 版本演进
 
-v1.0 可运行 Demo → v1.1 体验与性能（会话恢复/矩阵/并发）→ v1.2 安全与质量（幂等/上传安全/RTL）→ v1.3 可审计闭环（规则库版本化/修复日志落库）→ v1.4 交付成熟度（CSV 导出/注册表化重构/性能基准）。详见 [CHANGELOG.md](CHANGELOG.md)。
+v1.0 可运行 Demo → v1.1 体验与性能（会话恢复/矩阵/并发）→ v1.2 安全与质量（幂等/上传安全/RTL）→ v1.3 可审计闭环（规则库版本化/修复日志落库）→ v1.4 交付成熟度（CSV 导出/注册表化/基准）→ v1.5 前端专项（暗色模式/命令面板/骨架屏/彩带/A11y）。详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 🎯 解决什么问题
 
@@ -151,7 +155,7 @@ pip install -r requirements-dev.txt && python -m pytest
 
 > 刷新页面会自动恢复上次进度（会话持久化），侧栏可随时切换/删除历史商品；规则校验页提供全物料合规矩阵；多语言 Listing 按 RTL 正确排版阿语。
 >
-> UI 冒烟：`python scripts/ui_smoke.py`（Playwright 六步流 11 项断言）。
+> UI 冒烟：`python scripts/ui_smoke.py`（Playwright 19 项断言，含暗色模式/命令面板/灯箱/快捷键）。快捷键：<kbd>1</kbd>-<kbd>6</kbd> 切步骤 · <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd> 命令面板 · <kbd>D</kbd> 切主题。
 >
 > **CI**：`.github/workflows/ci.yml` 已就绪（Python 3.10/3.12 跑 pytest）。因推送 workflow 文件需要 token 的 `workflow` 权限，启用只需：`gh auth refresh -h github.com -s workflow` 后执行 `git add .github && git push`。
 

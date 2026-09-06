@@ -3,42 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <title>ListingForge · AI 智能上新引擎</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+<script>
+/* 主题引导：先于渲染应用主题，避免闪烁（localStorage > 系统偏好） */
+(function () {
+  var t = localStorage.getItem("lf-theme")
+    || (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.classList.toggle("dark", t === "dark");
+})();
+</script>
 </head>
 <body>
+<div id="topProgress" aria-hidden="true"></div>
 <header class="topbar">
   <div class="brand">
-    <div class="logo">LF</div>
+    <div class="logo" aria-hidden="true">LF</div>
     <div>
       <h1>ListingForge <span class="sub">AI 智能上新引擎</span></h1>
       <p class="tagline">资料结构化 → 文案生成 → 规则校验 → 人审放行 → 多平台一键上架</p>
     </div>
   </div>
   <div class="top-right">
-    <a class="gh-link" href="https://github.com/LC-di-yan/ListingForge" target="_blank" rel="noopener">
+    <a class="gh-link" href="https://github.com/LC-di-yan/ListingForge" target="_blank" rel="noopener" aria-label="GitHub 仓库">
       <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
       GitHub
     </a>
     <span id="modeBadge" class="mode-badge">…</span>
+    <button class="theme-toggle" id="themeToggle" aria-label="切换亮色/暗色主题" title="切换主题（D）">🌙</button>
     <span class="hackathon-badge">AI+跨境黑客松 · 场景一 智能上新</span>
   </div>
 </header>
 
 <div class="layout">
   <aside class="sidebar">
-    <ol class="steps" id="steps">
-      <li data-step="1" class="active"><i>1</i><div><b>商品录入</b><small>示例 / 表单 / 照片</small></div></li>
-      <li data-step="2"><i>2</i><div><b>AI 结构化</b><small>Qwen-VL · PIM 数据</small></div></li>
-      <li data-step="3"><i>3</i><div><b>文案生成</b><small>多平台 · 多语言</small></div></li>
-      <li data-step="4"><i>4</i><div><b>规则校验</b><small>规则即代码</small></div></li>
-      <li data-step="5"><i>5</i><div><b>审核放行</b><small>AI 出稿 + 人审</small></div></li>
-      <li data-step="6"><i>6</i><div><b>一键上架</b><small>状态回传 · 运营清单</small></div></li>
-    </ol>
+    <nav aria-label="流程步骤">
+      <ol class="steps" id="steps">
+        <li data-step="1" class="active"><i>1</i><div><b>商品录入</b><small>示例 / 表单 / 照片</small></div></li>
+        <li data-step="2"><i>2</i><div><b>AI 结构化</b><small>Qwen-VL · PIM 数据</small></div></li>
+        <li data-step="3"><i>3</i><div><b>文案生成</b><small>多平台 · 多语言</small></div></li>
+        <li data-step="4"><i>4</i><div><b>规则校验</b><small>规则即代码</small></div></li>
+        <li data-step="5"><i>5</i><div><b>审核放行</b><small>AI 出稿 + 人审</small></div></li>
+        <li data-step="6"><i>6</i><div><b>一键上架</b><small>状态回传 · 运营清单</small></div></li>
+      </ol>
+    </nav>
     <div class="product-card" id="productCard">
       <div class="pc-title">当前商品</div>
-      <img id="pcImg" src="/static/placeholder.svg" alt="">
+      <img id="pcImg" src="/static/placeholder.svg" alt="当前商品图片" data-lightbox>
       <div id="pcName" class="pc-name">尚未选择商品</div>
       <div id="pcMeta" class="pc-meta">请从第 1 步开始</div>
     </div>
@@ -51,9 +64,9 @@
 
   <main class="content">
     <!-- Step 1 -->
-    <section class="panel active" id="panel-1">
+    <section class="panel active" id="panel-1" aria-label="商品录入">
       <h2>① 商品录入</h2>
-      <p class="hint">选择一个内置示例商品，或提交自定义商品资料（支持上传产品照片，接入 Qwen-VL 图像识别）。</p>
+      <p class="hint">选择一个内置示例商品，或提交自定义商品资料（支持上传产品照片，接入 Qwen-VL 图像识别）。按 <kbd>1</kbd>-<kbd>6</kbd> 可快速切换步骤，<kbd>Ctrl</kbd>+<kbd>K</kbd> 打开命令面板。</p>
       <div class="sample-grid" id="sampleGrid"></div>
       <details class="custom-form">
         <summary>➕ 自定义商品录入</summary>
@@ -70,10 +83,20 @@
     </section>
 
     <!-- Step 2 -->
-    <section class="panel" id="panel-2">
+    <section class="panel" id="panel-2" aria-label="AI 结构化">
       <h2>② 商品资料 AI 结构化（F1）</h2>
-      <p class="hint">多模态模型识别商品照片与文本资料，输出结构化 PIM 数据，并自动补全缺失属性；同步生成合规白底主图与多尺寸适配图（F3 图片管线）。</p>
+      <p class="hint">多模态模型识别商品照片与文本资料，输出结构化 PIM 数据，并自动补全缺失属性；同步生成合规白底主图与多尺寸适配图（F3 图片管线）。点击图片可放大预览。</p>
       <button class="btn primary" id="btnStructure">🧠 开始 AI 结构化 + 图片管线</button>
+      <div id="structureSkeleton" class="hidden" style="margin-top:16px" aria-hidden="true">
+        <div class="grid-2">
+          <div class="card">
+            <div class="skeleton sk-line w40"></div>
+            <div class="skeleton sk-line w80"></div><div class="skeleton sk-line w60"></div>
+            <div class="skeleton sk-line w80"></div><div class="skeleton sk-line w60"></div>
+          </div>
+          <div class="card"><div class="skeleton sk-block"></div><div class="skeleton sk-line w80"></div></div>
+        </div>
+      </div>
       <div id="structureResult" class="hidden">
         <div class="grid-2">
           <div class="card">
@@ -86,7 +109,7 @@
           </div>
           <div class="card">
             <h3>图片管线产物（F3）</h3>
-            <div class="img-preview"><img id="imgMain" class="big" alt="白底主图"><small>白底主图 1:1 · 1200px</small></div>
+            <div class="img-preview"><img id="imgMain" class="big" alt="白底主图" data-lightbox><small>白底主图 1:1 · 1200px</small></div>
             <div class="variants" id="imgVariants"></div>
           </div>
         </div>
@@ -95,7 +118,7 @@
     </section>
 
     <!-- Step 3 -->
-    <section class="panel" id="panel-3">
+    <section class="panel" id="panel-3" aria-label="文案生成">
       <h2>③ 多平台 Listing 文案工厂（F2）</h2>
       <p class="hint">一次生成 4 平台 × 多语言全套物料。多语言为"本地化重写"而非直译，保留关键词与表达习惯。</p>
       <div class="pick-row">
@@ -103,6 +126,13 @@
         <div class="pick"><h4>目标语言</h4><div id="pickLanguages" class="chips selectable"></div></div>
       </div>
       <button class="btn primary" id="btnGenerate">✨ 一键生成全套 Listing</button>
+      <div id="genSkeleton" class="hidden" style="margin-top:16px" aria-hidden="true">
+        <div class="card">
+          <div class="skeleton sk-badge" style="margin-bottom:10px"></div>
+          <div class="skeleton sk-line w80"></div><div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line"></div><div class="skeleton sk-line w60"></div>
+        </div>
+      </div>
       <div id="generateResult" class="hidden">
         <div class="stat-row" id="genStats"></div>
         <div id="genPreview"></div>
@@ -112,9 +142,9 @@
     </section>
 
     <!-- Step 4 -->
-    <section class="panel" id="panel-4">
+    <section class="panel" id="panel-4" aria-label="规则校验">
       <h2>④ 平台规则引擎校验（F4 · 差异化核心）</h2>
-      <p class="hint">"规则即代码"：每平台规则库版本化（v1.0.0），逐条校验标题长度 / 禁用词 / 五点数量 / 主图规范 / 必填属性，不合规可一键自动改写。</p>
+      <p class="hint">"规则即代码"：每平台规则库版本化，逐条校验标题长度 / 禁用词 / 五点数量 / 主图规范 / 必填属性，不合规可一键自动改写。</p>
       <div class="card" style="padding:14px 18px">
         <div class="report-toolbar" style="margin-bottom:10px">
           <b style="font-size:13.5px">全部物料合规总览</b>
@@ -123,7 +153,7 @@
         <div id="matrixArea" class="matrix"><p class="hint" style="margin:0">点击「批量校验全部」查看所有 Listing 的合规状态</p></div>
       </div>
       <div class="report-toolbar">
-        <select id="reportListing"></select>
+        <select id="reportListing" aria-label="选择要查看校验报告的 Listing"></select>
         <button class="btn warn" id="btnAutofix">🔧 一键自动改写修复</button>
         <button class="btn ghost" id="btnRevalidate">重新校验</button>
       </div>
@@ -132,11 +162,11 @@
     </section>
 
     <!-- Step 5 -->
-    <section class="panel" id="panel-5">
+    <section class="panel" id="panel-5" aria-label="审核放行">
       <h2>⑤ 批量审核工作台（F5）</h2>
-      <p class="hint">AI 出稿 + 人审放行：可修改任意字段后放行；全流程留痕可追溯。</p>
+      <p class="hint">AI 出稿 + 人审放行：可修改任意字段后保存/放行；全流程留痕可追溯。悬停字段右上角可一键复制。</p>
       <div class="report-toolbar">
-        <select id="reviewListing"></select>
+        <select id="reviewListing" aria-label="选择要审核的 Listing"></select>
         <button class="btn ghost" id="btnSaveDraft">💾 保存修改</button>
         <button class="btn success" id="btnApprove">✅ 放行</button>
         <button class="btn danger" id="btnReject">⛔ 驳回</button>
@@ -147,7 +177,7 @@
     </section>
 
     <!-- Step 6 -->
-    <section class="panel" id="panel-6">
+    <section class="panel" id="panel-6" aria-label="一键上架">
       <h2>⑥ 多平台一键上架（F6）</h2>
       <p class="hint">Demo 使用模拟适配器（返回平台商品 ID）；生产替换为 Shopify / 亚马逊 SP-API / 速卖通 / TikTok Shop 官方 API，接口签名一致。</p>
       <div class="report-toolbar">
@@ -170,11 +200,13 @@
   </main>
 </div>
 
+<p class="kbd-hints"><kbd>1</kbd>-<kbd>6</kbd> 切换步骤 · <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd> 命令面板 · <kbd>D</kbd> 切换主题 · <kbd>?</kbd> 帮助</p>
 <footer class="footer">
   ListingForge Demo · 基于阿里云百炼（Qwen 系列）设计 · 模拟模式离线可运行 ·
   <a href="/docs" target="_blank">API 文档</a>
 </footer>
 
+<canvas id="confettiCanvas" aria-hidden="true"></canvas>
 <script src="/static/app.js"></script>
 </body>
 </html>
