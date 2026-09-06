@@ -150,7 +150,10 @@
     <section class="panel" id="panel-6">
       <h2>⑥ 多平台一键上架（F6）</h2>
       <p class="hint">Demo 使用模拟适配器（返回平台商品 ID）；生产替换为 Shopify / 亚马逊 SP-API / 速卖通 / TikTok Shop 官方 API，接口签名一致。</p>
-      <button class="btn primary" id="btnPublish">🚀 将已放行 Listing 批量上架</button>
+      <div class="report-toolbar">
+        <button class="btn primary" id="btnPublish">🚀 将已放行 Listing 批量上架</button>
+        <button class="btn ghost" id="btnExportCsv" style="display:none">⬇ 导出全部物料 CSV</button>
+      </div>
       <div id="publishResult" class="hidden">
         <div id="taskList"></div>
         <div class="card" style="margin-top:16px">

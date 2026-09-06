@@ -9,6 +9,19 @@ from app import imaging, rules_engine
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 
+def test_registry_covers_all_declared_types():
+    """注册表覆盖规则库中声明的全部规则类型与修复钩子（v1.4 F2 结构回归）"""
+    import json
+    declared_types, declared_fixes = set(), set()
+    for p in rules_engine.PLATFORMS:
+        for r in rules_engine.load_rules(p)["rules"]:
+            declared_types.add(r["type"])
+            if r.get("fix"):
+                declared_fixes.add(r["fix"])
+    assert declared_types <= set(rules_engine.CHECKS), declared_types - set(rules_engine.CHECKS)
+    assert declared_fixes <= set(rules_engine.FIXES), declared_fixes - set(rules_engine.FIXES)
+
+
 def base_listing():
     return {
         "title": "Insulated Water Bottle Stainless Steel Classic Black with Smart LED temperature display for travel",

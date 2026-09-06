@@ -92,6 +92,8 @@ def main():
         page.wait_for_timeout(600)
         ok = page.evaluate("state.tasks.every(t => t.status === 'success')")
         check("四平台上架成功", ok and page.evaluate("state.tasks.length") == 4)
+        export_visible = page.locator("#btnExportCsv").is_visible()
+        check("导出 CSV 按钮可用", export_visible)
 
         check("无页面 JS 错误", not errors, "; ".join(errors[:2]))
         browser.close()

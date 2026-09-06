@@ -64,7 +64,10 @@ function goto(step) {
   if (step === 2) renderStructure();
   if (step === 4) renderReport();
   if (step === 5) renderReview();
-  if (step === 6 && state.tasks.length) renderTasks();
+  if (step === 6) {
+    $("#btnExportCsv").style.display = state.listings.length ? "" : "none";
+    if (state.tasks.length) renderTasks();
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -522,6 +525,9 @@ async function init() {
   $("#goto6").onclick = () => goto(6);
   $("#btnPublish").onclick = doPublish;
   $("#btnDeleteProduct").onclick = doDeleteProduct;
+  $("#btnExportCsv").onclick = () => {
+    window.location.href = `/api/products/${state.product.id}/export`;
+  };
   await restoreSession();   // 刷新后从数据库恢复上次进度
   goto(state.product ? maxStep() : 1);
 }

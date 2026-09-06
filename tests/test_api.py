@@ -121,6 +121,47 @@ def test_autofix_log_persisted(client, structured_bottle):
     assert l2["validation"]["last_autofix"]["fixed"]
 
 
+def test_export_csv(client, structured_bottle):
+    """物料导出 CSV：行数/表头/逗号换行转义/UTF-8 BOM（v1.4 F1）"""
+    import csv
+    import io
+    pid = structured_bottle
+    data = {"platforms": ["amazon"], "languages": ["en"]}
+    ls = client.post(f"/api/products/{pid}/generate", data=data).json()["listings"]
+    # 注入含逗号与换行的标题，验证 CSV 转义
+    tricky = '标题,带"引号"和\n换行'
+    client.put(f"/api/listings/{ls[0]['id']}", data={"title": tricky})
+    r = client.get(f"/api/products/{pid}/export")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/csv")
+    assert r.content.startswith(b"\xef\xbb\xbf")  # UTF-8 BOM（Excel 中文兼容）
+    rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    assert rows[0][:5] == ["商品", "平台", "语言", "状态", "标题"]
+    assert len(rows) == 2  # 表头 + 1 条物料
+    assert rows[1][4] == tricky  # 逗号/换行/引号被正确转义还原
+    assert rows[1][8] == "v1.3.0"  # 规则库版本随报告导出
+
+
+def test_500_hides_internal_details(client, monkeypatch):
+    """500 对外通用文案，详情仅入日志；DEBUG 模式保留细节（v1.4 F3）"""
+    import app.main as main
+    from fastapi.testclient import TestClient
+
+    # 常规模式：不泄露异常细节
+    with TestClient(main.app, raise_server_exceptions=False) as c:
+        monkeypatch.setattr(main.db, "get_product", lambda pid: (_ for _ in ()).throw(RuntimeError("D:\\secret\\path 泄露")))
+        r = c.get("/api/products/999")
+        assert r.status_code == 500
+        assert "D:\\secret\\path" not in r.text
+        assert "服务器内部错误" in r.json()["detail"]
+    # DEBUG 模式：保留细节便于联调
+    monkeypatch.setenv("LISTINGFORGE_DEBUG", "1")
+    with TestClient(main.app, raise_server_exceptions=False) as c2:
+        r2 = c2.get("/api/products/999")
+        assert "RuntimeError" in r2.json()["detail"]
+    monkeypatch.delenv("LISTINGFORGE_DEBUG")
+
+
 def base64_png() -> bytes:
     import base64
     # 1x1 白色 PNG

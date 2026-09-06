@@ -5,6 +5,7 @@
 """
 import base64
 import logging
+import os
 import shutil
 import time
 import uuid
@@ -15,7 +16,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import database as db
@@ -334,6 +335,32 @@ def _product_counts(pid: int) -> dict:
             "tasks": len(db.list_tasks(pid))}
 
 
+@app.get("/api/products/{pid}/export")
+def export_csv(pid: int):
+    """物料导出 CSV（UTF-8 BOM，Excel 直接打开不乱码；供平台后台批量导入/存档）"""
+    import csv
+    import io
+
+    p = db.get_product(pid)
+    if not p:
+        raise HTTPException(404, "商品不存在")
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["商品", "平台", "语言", "状态", "标题", "五点描述", "长描述", "SEO Meta",
+                "规则库版本", "校验结论", "校验时间"])
+    for l in db.list_listings(pid):
+        v = l.get("validation") or {}
+        w.writerow([p["name"], l["platform"], l["language"], l["status"], l["title"],
+                    "\n".join(l["bullets"]), l["description"], l.get("seo_meta", ""),
+                    v.get("ruleset_version", ""),
+                    "通过" if v.get("passed") else "不合规", v.get("validated_at", "")])
+    log.info("商品 #%d 导出 %d 条物料 CSV", pid, len(db.list_listings(pid)))
+    return Response(
+        buf.getvalue().encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=listingforge_{pid}.csv"})
+
+
 @app.delete("/api/products/{pid}")
 def delete_product(pid: int):
     p = db.get_product(pid)
@@ -348,8 +375,10 @@ def delete_product(pid: int):
 
 @app.exception_handler(Exception)
 def on_error(request, exc):
+    # 对外通用文案，异常详情仅入服务端日志（LISTINGFORGE_DEBUG=1 时保留细节便于联调）
     log.exception("请求处理失败: %s", request.url.path)
-    return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"})
+    detail = f"{type(exc).__name__}: {exc}" if os.environ.get("LISTINGFORGE_DEBUG") else "服务器内部错误，请查看服务端日志"
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 
 # 静态资源（前端工作台 + 图片）
