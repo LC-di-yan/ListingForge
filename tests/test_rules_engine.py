@@ -89,6 +89,36 @@ def test_aliexpress_attr_required():
     assert fixed is not None  # autofill_attr 直接改 pim（返回后由调用方持久化）
 
 
+def test_raw_non_white_image_is_rejected(tmp_path):
+    """规则引擎真能拦截：原始渐变底照片（未过图片管线）应被白底规则拦下（v1.3 T5）"""
+    raw = ASSETS / "sample_bottle.png"  # 浅灰渐变背景的产品照
+    report = rules_engine.validate("amazon", base_listing(), raw, None)
+    white = next(c for c in report["checks"] if c["id"] == "image_white_bg")
+    assert white["status"] == "fail"
+    assert not report["passed"]
+
+
+def test_report_carries_ruleset_version_and_time(tmp_path):
+    """版本随规则库文件走 + 校验时间戳（v1.3 T1/T3 审计字段）"""
+    import json
+    import shutil
+    rules_dir = Path(rules_engine.RULES_DIR)
+    backup = rules_dir / "tiktok_shop.backup.json"
+    shutil.copy(rules_dir / "tiktok_shop.json", backup)
+    try:
+        report = rules_engine.validate("tiktok_shop", base_listing(), "", None)
+        assert report["ruleset_version"] == "v1.3.0"
+        assert report["validated_at"]  # ISO 时间戳
+        data = json.loads((rules_dir / "tiktok_shop.json").read_text(encoding="utf-8"))
+        data["version"] = "v9.9.9-test"
+        (rules_dir / "tiktok_shop.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        report2 = rules_engine.validate("tiktok_shop", base_listing(), "", None)
+        assert report2["ruleset_version"] == "v9.9.9-test"  # 热加载生效
+    finally:
+        shutil.move(backup, rules_dir / "tiktok_shop.json")
+        rules_engine._RULE_CACHE.pop("tiktok_shop", None)
+
+
 def test_image_rules_measure_real_pixels(tmp_path):
     main = imaging.make_white_bg(ASSETS / "sample_bottle.png", tmp_path / "main.jpg")
     report = rules_engine.validate("amazon", base_listing(), main, None)

@@ -3,7 +3,7 @@
 > AI+跨境黑客松巅峰赛（用AI解跨境真命题）· 场景一「AI智能上新」参赛作品
 > 基于阿里云百炼（Qwen 系列）设计的端到端 AI 上新引擎：**资料结构化 → 多平台多语言文案 → 白底主图/多尺寸图 → 平台规则校验 → 人审放行 → 一键上架**
 
-![CI](https://github.com/LC-di-yan/ListingForge/actions/workflows/ci.yml/badge.svg) ![mode](https://img.shields.io/badge/百炼-Qwen--VL%20%2F%20Qwen--Plus-6d64f0) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/LC-di-yan/ListingForge/actions/workflows/ci.yml/badge.svg) ![version](https://img.shields.io/badge/version-v1.3.0-6d64f0) ![mode](https://img.shields.io/badge/百炼-Qwen--VL%20%2F%20Qwen--Plus-6d64f0) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![license](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
@@ -68,6 +68,10 @@ DASHSCOPE_API_KEY=sk-你的百炼Key python run.py
 - **演示视频**：`video/listingforge_demo.mp4`（60 秒全流程录屏讲解）
 
 ---
+
+## 🧾 版本演进
+
+v1.0 可运行 Demo → v1.1 体验与性能（会话恢复/矩阵/并发）→ v1.2 安全与质量（幂等/上传安全/RTL）→ v1.3 可审计闭环（规则库版本化落地/修复日志落库/双轨模式测试）。详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 🎯 解决什么问题
 
@@ -141,7 +145,7 @@ python run.py   # 启动后另开终端
 curl http://127.0.0.1:8000/api/meta          # {"mode":"mock"...}
 curl -X POST http://127.0.0.1:8000/api/products/sample/bottle
 
-# 测试套件（26 个用例：规则引擎 / 生成器 / 图片管线 / API 全流程含幂等与安全回归）
+# 测试套件（37 个用例：规则引擎 / 生成器 / 图片管线 / qwen 双轨 mock 传输层 / API 全流程含幂等与安全回归）
 pip install -r requirements-dev.txt && python -m pytest
 ```
 

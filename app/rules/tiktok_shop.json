@@ -1,5 +1,6 @@
 {
   "platform": "tiktok_shop",
+  "version": "v1.3.0",
   "label": "TikTok Shop",
   "region": "US/SEA",
   "rules": [

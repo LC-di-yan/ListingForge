@@ -9,6 +9,7 @@
 """
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 RULES_DIR = Path(__file__).resolve().parent / "rules"
@@ -139,7 +140,7 @@ def _eval_rule(rule: dict, listing: dict, image_path: str, pim: dict | None) -> 
 
 
 def validate(platform: str, listing: dict, image_path: str = "", pim: dict | None = None) -> dict:
-    """校验一个 Listing，返回报告"""
+    """校验一个 Listing，返回报告（含规则库版本与校验时间，支持审计追溯）"""
     ruleset = load_rules(platform)
     checks = []
     for rule in ruleset["rules"]:
@@ -151,7 +152,8 @@ def validate(platform: str, listing: dict, image_path: str = "", pim: dict | Non
     return {
         "platform": platform,
         "platform_label": ruleset["label"],
-        "ruleset_version": "v1.0.0",
+        "ruleset_version": ruleset.get("version", "v0.0.0"),  # 版本随规则库文件走，改库即生效
+        "validated_at": datetime.now().isoformat(timespec="seconds"),
         "passed": not errors,
         "summary": f'{len(checks) - len(errors) - len(warns)} 通过 / {len(errors)} 不合规 / {len(warns)} 建议',
         "checks": checks,

@@ -7,8 +7,10 @@ import base64
 import logging
 import shutil
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -40,7 +42,7 @@ async def lifespan(app: FastAPI):
     yield  # 线程池随进程退出回收，不做 shutdown（支持多次 startup 的测试场景）
 
 
-app = FastAPI(title="ListingForge · AI 智能上新引擎 Demo", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="ListingForge · AI 智能上新引擎 Demo", version="1.3.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -102,7 +104,7 @@ async def create_product(name: str = Form(...), category: str = Form(""),
             raise HTTPException(400, "图片不能超过 8MB")
         dest_dir = UPLOADS / "raw"
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / f"upload_{int(time.time())}_{safe_name}"
+        dest = dest_dir / f"upload_{uuid.uuid4().hex[:8]}_{safe_name}"  # uuid 防同秒同名覆盖
         with open(dest, "wb") as f:
             f.write(data)
         image_path = str(dest)
@@ -199,6 +201,10 @@ def validate(lid: int):
         raise HTTPException(404, "Listing 不存在")
     p = db.get_product(l["product_id"])
     report = rules_engine.validate(l["platform"], l, _main_image(p), p.get("pim"))
+    # 重校验时保留历史审计字段（改写留痕不随重建丢失）
+    old = l.get("validation") or {}
+    if isinstance(old, dict) and old.get("last_autofix"):
+        report["last_autofix"] = old["last_autofix"]
     db.update_listing(lid, validation=report)
     return report
 
@@ -212,6 +218,9 @@ def validate_all(pid: int):
     out = []
     for l in db.list_listings(pid):
         report = rules_engine.validate(l["platform"], l, _main_image(p), p.get("pim"))
+        old = l.get("validation") or {}
+        if isinstance(old, dict) and old.get("last_autofix"):
+            report["last_autofix"] = old["last_autofix"]  # 保留改写留痕
         db.update_listing(l["id"], validation=report)
         out.append({"id": l["id"], "platform": l["platform"], "language": l["language"],
                     "status": l["status"], "passed": report["passed"], "summary": report["summary"]})
@@ -229,6 +238,8 @@ def autofix(lid: int):
                       description=fixed["description"], seo_meta=fixed.get("seo_meta", ""))
     report = rules_engine.validate(l["platform"], db.get_listing(lid),
                                    _main_image(p), p.get("pim"))
+    # 修复日志并入校验报告持久化（审计留痕：谁在何时被哪些规则改写过）
+    report["last_autofix"] = {**fix_log, "at": datetime.now().isoformat(timespec="seconds")}
     db.update_listing(lid, validation=report)
     log.info("Listing #%d 自动改写 %d 项", lid, len(fix_log["fixed"]))
     return {"listing": db.get_listing(lid), "fix_log": fix_log, "report": report}

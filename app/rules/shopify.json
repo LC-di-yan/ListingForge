@@ -1,5 +1,6 @@
 {
   "platform": "shopify",
+  "version": "v1.3.0",
   "label": "Shopify 独立站",
   "region": "Brand DTC",
   "rules": [

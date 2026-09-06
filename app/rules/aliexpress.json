@@ -1,5 +1,6 @@
 {
   "platform": "aliexpress",
+  "version": "v1.3.0",
   "label": "速卖通 AliExpress",
   "region": "Global",
   "rules": [

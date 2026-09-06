@@ -224,6 +224,10 @@ async function doGenerate() {
   const platforms = [...document.querySelectorAll("#pickPlatforms .chip.on")].map(c => c.dataset.key);
   const languages = [...document.querySelectorAll("#pickLanguages .chip.on")].map(c => c.dataset.key);
   if (!platforms.length || !languages.length) { toast("请至少选择一个平台与一种语言", true); return; }
+  if (state.listings.some(l => ["approved", "published"].includes(l.status))
+      && !confirm("重新生成将清除当前已放行/已上架的旧物料并重新校验放行状态，确认继续？")) {
+    return;  // 重建式生成会重置审核状态，需用户确认
+  }
   $("#btnGenerate").disabled = true; $("#btnGenerate").textContent = "⏳ 多平台文案链生成中…";
   try {
     const r = await formPost(`/api/products/${state.product.id}/generate`, { platforms, languages });
@@ -338,6 +342,16 @@ async function renderReport() {
   const sum = el("div", "report-summary " + (r.passed ? "ok" : "bad"),
     `${r.platform_label} · 规则库 ${r.ruleset_version} — ${r.summary} ${r.passed ? "✅ 可提交审核" : "❌ 存在不合规项，请自动改写"}`);
   area.appendChild(sum);
+  if (r.validated_at) {
+    area.appendChild(el("p", "hint", `🕐 校验时间 ${r.validated_at.replace("T", " ")}`));
+  }
+  if (r.last_autofix && r.last_autofix.fixed && r.last_autofix.fixed.length) {
+    const names = r.last_autofix.fixed.map(f => f.name).join("、");
+    area.appendChild(el("div", "check-row",
+      `<div class="left"><b>🧾 上次自动改写：${r.last_autofix.fixed.length} 项</b>
+       <small>${esc(names)} · ${esc(String(r.last_autofix.at || "").replace("T", " "))}</small></div>
+       <span class="status-chip warn">已留痕</span>`));
+  }
   r.checks.forEach(c => {
     const row = el("div", "check-row");
     row.innerHTML = `<div class="left"><b>${c.name}</b><small>${c.detail} · 实测: ${esc(c.observed)}${c.fixable ? " · 支持自动修复" : ""}</small></div>

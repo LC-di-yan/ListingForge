@@ -1,5 +1,6 @@
 {
   "platform": "amazon",
+  "version": "v1.3.0",
   "label": "亚马逊 Amazon",
   "region": "US/EU",
   "rules": [

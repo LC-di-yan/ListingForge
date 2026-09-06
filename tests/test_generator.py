@@ -5,8 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.generator import (PLATFORM_SPEC, _short, generate_listing_mock,
-                           structure_product_mock)
+from app.generator import (LOCALIZED_LIBRARY, PLATFORM_SPEC, _short,
+                           generate_listing_mock, structure_product_mock)
 
 PIM_BOTTLE = structure_product_mock("智能温显保温杯 500ml", "保温杯",
                                     ["LED温度显示", "304不锈钢真空内胆保温24小时"],
@@ -48,6 +48,16 @@ def test_localized_rewrite_hits_library():
     assert re.search(r"[\u0600-\u06FF]", ar["title"])  # 阿语字符
     pt = generate_listing_mock(PIM_BOTTLE, "shopify", "pt")
     assert "Garrafa" in pt["title"] or "Aurora" in pt["title"]
+
+
+def test_localized_fallback_for_unknown_category():
+    """未命中类目文案库 → 词库映射 + 本地化框架改写（v1.3 T5 盲区补齐）"""
+    pim = structure_product_mock("竹制软毛牙刷 4 支装", "牙刷", ["软毛呵护牙龈"], 6.99, "")
+    assert pim["category_en"] not in LOCALIZED_LIBRARY  # 走 fallback 分支
+    es = generate_listing_mock(pim, "amazon", "es")
+    assert es["description"].startswith("¡Descubre")  # 本地化开场
+    assert es["description"].endswith("¡Cómpralo ahora!")  # 本地化收尾
+    assert es["title"] and es["bullets"]
 
 
 def test_titles_layout_core_keywords():

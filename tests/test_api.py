@@ -91,6 +91,36 @@ def test_upload_filename_traversal_blocked(client, tmp_path):
     client.delete(f"/api/products/{r.json()['id']}")
 
 
+def test_delete_cascades(client):
+    """删除商品级联清空物料与任务（v1.3 T5）"""
+    pid = client.post("/api/products/sample/earbuds").json()["id"]
+    client.post(f"/api/products/{pid}/structure")
+    client.post(f"/api/products/{pid}/generate", data={"platforms": "amazon", "languages": "en"})
+    assert len(client.get(f"/api/products/{pid}/listings").json()) == 1
+    assert client.delete(f"/api/products/{pid}").status_code == 200
+    assert client.get(f"/api/products/{pid}").status_code == 404
+    assert client.get(f"/api/products/{pid}/listings").json() == []
+    assert client.get(f"/api/products/{pid}/tasks").json() == []
+
+
+def test_autofix_log_persisted(client, structured_bottle):
+    """自动改写日志并入校验报告落库（v1.3 T2 审计留痕）"""
+    pid = structured_bottle
+    data = {"platforms": ["aliexpress"], "languages": ["en"]}
+    ls = client.post(f"/api/products/{pid}/generate", data=data).json()["listings"]
+    fix = client.post(f"/api/listings/{ls[0]['id']}/autofix").json()
+    assert fix["fix_log"]["fixed"]
+    # 落库：重新拉取 listing，validation 报告内含 last_autofix
+    l = next(x for x in client.get(f"/api/products/{pid}/listings").json() if x["id"] == ls[0]["id"])
+    assert l["validation"]["last_autofix"]["fixed"]
+    assert l["validation"]["last_autofix"]["at"]
+    assert l["validation"]["ruleset_version"] == "v1.3.0"
+    # 重新校验后留痕仍在（报告重建不丢审计字段）
+    client.get(f"/api/listings/{ls[0]['id']}/validate")
+    l2 = next(x for x in client.get(f"/api/products/{pid}/listings").json() if x["id"] == ls[0]["id"])
+    assert l2["validation"]["last_autofix"]["fixed"]
+
+
 def base64_png() -> bytes:
     import base64
     # 1x1 白色 PNG
